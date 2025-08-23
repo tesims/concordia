@@ -14,8 +14,10 @@
 
 """Component that helps a game master decide whose turn is next."""
 
-from collections.abc import Sequence, Mapping
+from collections.abc import Mapping, Sequence
+import copy
 import random
+import threading
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component
@@ -166,7 +168,12 @@ class NextActingAllEntities(entity_component.ContextComponent):
 
   def get_currently_active_player(self) -> str | None:
     """Not applicable for this component as all players are always active."""
-    return None
+    raise RuntimeError(
+        'Error in NextActingAllEntities: Call get_currently_active_player() is'
+        ' not applicable for this component as all players are always active. ',
+        'You might be using NextActionSpec component in a simultaneous'
+        ' environment.',
+    )
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
@@ -199,11 +206,28 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
         components.
     """
     super().__init__()
-    self._sequence = sequence
+    self._sequence = copy.copy(list(sequence))
 
     self._pre_act_label = pre_act_label
 
+    self._lock = threading.Lock()
+
     self._currently_active_player_idx = None
+
+  def remove_actor_from_sequence(self, actor_name: str) -> None:
+    """Removes an actor from the sequence."""
+    with self._lock:
+      print(f'Removing {actor_name} from sequence: {self._sequence}')
+      if actor_name in self._sequence:
+        self._sequence.remove(actor_name)
+      else:
+        raise ValueError(f'Actor {actor_name} not found in sequence.')
+      print(f'Sequence after removal: {self._sequence}')
+
+  def add_actor_to_sequence(self, actor_name: str) -> None:
+    """Adds an actor to the sequence."""
+    with self._lock:
+      self._sequence.append(actor_name)
 
   def pre_act(
       self,
@@ -214,7 +238,8 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
       idx = self._currently_active_player_idx
       if idx is None:
         idx = 0
-      idx = (idx + 1) % len(self._sequence)
+      else:
+        idx = (idx + 1) % len(self._sequence)
       result = self._sequence[idx]
       self._currently_active_player_idx = idx
 
@@ -227,13 +252,18 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
+    with self._lock:
+      sequence = copy.copy(self._sequence)
     return {
         'currently_active_player_idx': self._currently_active_player_idx,
+        'sequence': sequence,
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._currently_active_player_idx = state['currently_active_player_idx']
+    with self._lock:
+      self._currently_active_player_idx = state['currently_active_player_idx']
+      self._sequence = state['sequence']
 
 
 class NextActingInRandomOrder(entity_component.ContextComponent):
