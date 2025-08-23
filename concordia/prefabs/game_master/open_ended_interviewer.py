@@ -37,6 +37,8 @@ class GameMaster(prefab_lib.Prefab):
           "name": "InterviewerGM",
           "player_names": [],  # Required: names of the players
           "questionnaires": [],  # Required: list of questionnaires
+          "sequence_of_events": [],  # Optional: sequence of events
+          "embedder": None,  # Required: embedder for open-ended questions
           "verbose": False,
       }
   )
@@ -67,9 +69,11 @@ class GameMaster(prefab_lib.Prefab):
 
     # Questionnaire component
     questionnaire_component_instance = (
-        gm_components.questionnaire.Questionnaire(
+        gm_components.open_ended_questionnaire.OpenEndedQuestionnaire(
             questionnaires=questionnaires,
             player_names=player_names,
+            embedder=self.params["embedder"],
+            sequence_of_events=self.params.get("sequence_of_events", [""]),
         )
     )
 

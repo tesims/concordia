@@ -1,4 +1,4 @@
-# Copyright 2023 DeepMind Technologies Limited.
+# Copyright 2025 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Entity prefabs."""
+"""Library of prefabs contributed by users."""
 
-from concordia.prefabs.entity import basic
-from concordia.prefabs.entity import basic_scripted
-from concordia.prefabs.entity import basic_with_plan
-from concordia.prefabs.entity import fake_assistant_with_configurable_system_prompt
-from concordia.prefabs.entity import minimal
+from concordia.contrib.prefabs import game_master

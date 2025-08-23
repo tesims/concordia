@@ -14,7 +14,7 @@
 
 """A simple acting component that aggregates contexts from components."""
 
-from collections.abc import Sequence
+from collections.abc import Sequence, Mapping
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -23,30 +23,30 @@ from concordia.typing import entity_component
 from typing_extensions import override
 
 
-class ConcatActComponent(
+class ScriptedActComponent(
     entity_component.ActingComponent, entity_component.ComponentWithLogging
 ):
-  """A component which concatenates contexts from context components.
-
-  This component will receive the contexts from `pre_act` from all the
-  components, and assemble them in the order specified to `__init__`. If the
-  component order is not specified, then components will be assembled in the
-  iteration order of the `ComponentContextMapping` passed to
-  `get_action_attempt`. Components that return empty strings from `pre_act` are
-  ignored.
+  """A an acting component that uses a script to generate actions.
+  
+  This component is used to generate actions from a script. The script is a list
+  of dictionaries, where each entry is a dictionary containing the name of the
+  entity and the action to be performed.
   """
 
   def __init__(
       self,
       model: language_model.LanguageModel,
+      script: list[Mapping[str, str]],
       component_order: Sequence[str] | None = None,
       prefix_entity_name: bool = True,
-      randomize_choices: bool = True,
   ):
     """Initializes the agent.
 
     Args:
       model: The language model to use for generating the action attempt.
+      script: The script to execute. This is a list of dictionaries, where each
+        entry is a dictionary containing the name of the entity that the line is
+        associated with and the action to be performed.
       component_order: The order in which the component contexts will be
         assembled when calling the act component. If None, the contexts will be
         assembled in the iteration order of the `ComponentContextMapping` passed
@@ -59,8 +59,6 @@ class ConcatActComponent(
         `get_action_attempt`.
       prefix_entity_name: Whether to prefix the entity name to the output of
         `get_action_attempt` when the `action_spec` output type is `FREE`. 
-      randomize_choices: Whether to randomize the choices in the
-        `get_action_attempt` when the `action_spec` output type is `CHOICE`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -69,7 +67,6 @@ class ConcatActComponent(
     super().__init__()
     self._model = model
     self._prefix_entity_name = prefix_entity_name
-    self._randomize_choices = randomize_choices
     if component_order is None:
       self._component_order = None
     else:
@@ -80,6 +77,12 @@ class ConcatActComponent(
             'The component order contains duplicate components: '
             + ', '.join(self._component_order)
         )
+
+    self._script = script
+    self._lines = []
+    # extract lines of the actor from the script
+    # create an iterator over the lines
+    self._line_index = 0
 
   def _context_for_action(
       self,
@@ -106,64 +109,55 @@ class ConcatActComponent(
     context = self._context_for_action(contexts)
     prompt.statement(context + '\n')
 
+    if not self._lines:
+      for line in self._script:
+        if line['name'] == self.get_entity().name:
+          self._lines.append(line['line'])
+
     call_to_action = action_spec.call_to_action.format(
         name=self.get_entity().name
     )
-    if action_spec.output_type in entity_lib.FREE_ACTION_TYPES:
-      output = ''
-      if self._prefix_entity_name:
-        output = self.get_entity().name + ' '
-      output += prompt.open_question(
+    output = ''
+    if self._prefix_entity_name:
+      output = self.get_entity().name + ' '
+    if self._line_index < len(self._lines):
+      training_target = self._lines[self._line_index]
+      llm_output = prompt.open_question(
           call_to_action,
           max_tokens=2200,
           answer_prefix=output,
           terminators=(),
           question_label='Exercise',
+          forced_response=self._lines[self._line_index],
       )
-      self._log(output, prompt)
+      training_context = prompt.view().text().removesuffix(llm_output + '\n')
+      output += llm_output
+      self._line_index += 1
+      self._log(output, prompt, training_context, training_target)
       return output
-    elif action_spec.output_type in entity_lib.CHOICE_ACTION_TYPES:
-      idx = prompt.multiple_choice_question(
-          question=call_to_action,
-          answers=action_spec.options,
-          randomize_choices=self._randomize_choices,
-      )
-      output = action_spec.options[idx]
-      self._log(output, prompt)
-      return output
-    elif action_spec.output_type == entity_lib.OutputType.FLOAT:
-      if self._prefix_entity_name:
-        prefix = self.get_entity().name + ' '
-      else:
-        prefix = ''
-      sampled_text = prompt.open_question(
-          call_to_action,
-          max_tokens=2200,
-          answer_prefix=prefix,
-      )
-      self._log(sampled_text, prompt)
-      try:
-        return str(float(sampled_text))
-      except ValueError:
-        return '0.0'
     else:
-      raise NotImplementedError(
-          f'Unsupported output type: {action_spec.output_type}. '
-          'Supported output types are: FREE, CHOICE, and FLOAT.'
-      )
+      return ''
 
   def _log(self,
            result: str,
-           prompt: interactive_document.InteractiveDocument):
+           prompt: interactive_document.InteractiveDocument,
+           training_context: str,
+           training_target: str):
     self._logging_channel({
         'Summary': f'Action: {result}',
         'Value': result,
         'Prompt': prompt.view().text().splitlines(),
+        'SFT datum': {'context': training_context, 'target': training_target},
     })
 
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to a dictionary."""
-    return {}
+    return {
+        'script': self._script,
+        'line_index': self._line_index,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
+    self._script = state['script']
+    self._line_index = state['line_index']
     pass

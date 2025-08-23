@@ -13,10 +13,13 @@
 # limitations under the License.
 
 """Test game master components."""
+
 import datetime
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.components.game_master import event_resolution
+from concordia.components.game_master import formative_memories_initializer
 from concordia.components.game_master import inventory
 from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
@@ -27,9 +30,11 @@ from concordia.components.game_master import scene_tracker
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.components.game_master import world_state
+from concordia.contrib.data.questionnaires import depression_stress_anxiety_scale
 from concordia.language_model import no_language_model
 from concordia.utils import helper_functions
 import numpy as np
+
 
 DEFAULT_SKIP_KEYS = {"_model", "_lock"}
 
@@ -96,6 +101,7 @@ COMPONENT_FACTORIES = {
         },
         "state_example": {
             "currently_active_player_idx": 0,
+            "sequence": ["Alice", "Bob"],
         },
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
@@ -218,7 +224,9 @@ COMPONENT_FACTORIES = {
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
     "formative_memories_initializer": {
-        "component_class": next_game_master.FormativeMemoriesInitializer,
+        "component_class": (
+            formative_memories_initializer.FormativeMemoriesInitializer
+        ),
         "kwargs": {
             "model": no_language_model.NoLanguageModel(),
             "next_game_master_name": "test_game_master",
@@ -249,14 +257,15 @@ COMPONENT_FACTORIES = {
     },
     "questionnaire": {
         "component_class": questionnaire.Questionnaire,
-        "kwargs": {"questionnaires": {}},
+        "kwargs": {
+            "questionnaires": [
+                depression_stress_anxiety_scale.DASSQuestionnaire()
+            ],
+            "player_names": ["Alice", "Bob"],
+        },
         "state_example": {
-            "questionnaire_idx": 0,
-            "question_idx": -1,
-            "answers": {
-                "Alice": {"fake_questionnaire": {}},
-            },
-            "last_observation": None,
+            "answers": {},
+            "answered_mask": {},
         },
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
