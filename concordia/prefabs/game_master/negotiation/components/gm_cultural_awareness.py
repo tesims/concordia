@@ -78,6 +78,16 @@ class CulturalAwarenessGM(negotiation_modules.NegotiationGMModule):
           face_saving_importance=0.7,
           negotiation_pace='moderate',
       ),
+      'east_asian': CulturalProfile(
+          culture_name='East Asian',
+          communication_style='indirect',
+          context_level='high_context',
+          time_orientation='polychronic',
+          relationship_importance=0.8,
+          hierarchy_sensitivity=0.8,
+          face_saving_importance=0.9,
+          negotiation_pace='slow',
+      ),
   }
 
   def __init__(
@@ -123,19 +133,13 @@ class CulturalAwarenessGM(negotiation_modules.NegotiationGMModule):
     actor_culture = self._participant_cultures.get(actor)
     recipient_culture = self._participant_cultures.get(recipient)
 
-    if not actor_culture or not recipient_culture:
+    # Need at least recipient culture to detect violations
+    if not recipient_culture:
       return None
 
-    actor_profile = self.CULTURAL_PROFILES[actor_culture]
     recipient_profile = self.CULTURAL_PROFILES[recipient_culture]
 
-    # Check for communication style mismatch
-    if (actor_profile.communication_style == 'direct' and
-        recipient_profile.communication_style == 'indirect'):
-      if any(word in action.lower() for word in ['no', 'reject', 'refuse', 'impossible']):
-        return f"Too direct rejection may offend {recipient_culture} sensibilities"
-
-    # Check for face-saving violations
+    # Check for face-saving violations (always check regardless of actor culture)
     if recipient_profile.face_saving_importance > 0.7:
       if any(word in action.lower() for word in ['wrong', 'mistake', 'fault', 'blame']):
         return f"Direct criticism threatens face in {recipient_culture} culture"
@@ -144,6 +148,14 @@ class CulturalAwarenessGM(negotiation_modules.NegotiationGMModule):
     if recipient_profile.hierarchy_sensitivity > 0.7:
       if any(word in action.lower() for word in ['demand', 'insist', 'must']):
         return f"Overly assertive language may violate {recipient_culture} hierarchy norms"
+
+    # Check for communication style mismatch (only if both cultures known)
+    if actor_culture:
+      actor_profile = self.CULTURAL_PROFILES[actor_culture]
+      if (actor_profile.communication_style == 'direct' and
+          recipient_profile.communication_style == 'indirect'):
+        if any(word in action.lower() for word in ['no', 'reject', 'refuse', 'impossible']):
+          return f"Too direct rejection may offend {recipient_culture} sensibilities"
 
     return None
 
@@ -204,7 +216,7 @@ class CulturalAwarenessGM(negotiation_modules.NegotiationGMModule):
 
     profile = self.CULTURAL_PROFILES[observer_culture]
 
-    observation = f"\nCULTURAL CONTEXT ({observer_culture}):\n"
+    observation = f"\nCULTURAL CONTEXT ({profile.culture_name}):\n"
 
     # Add relevant cultural guidance
     if context.current_phase == 'opening':
@@ -269,6 +281,20 @@ class CulturalAwarenessGM(negotiation_modules.NegotiationGMModule):
         report += "- Warning: Mix of high/low context cultures\n"
 
     return report
+
+  def get_state(self) -> str:
+    """Get the component state for saving/restoring."""
+    state_dict = {
+        'participants': len(self._participant_cultures),
+        'violations': len(self._violation_history),
+        'adaptations': sum(len(efforts) for efforts in self._adaptation_tracking.values()),
+    }
+    return str(state_dict)
+
+  def set_state(self, state: str) -> None:
+    """Set the component state from a saved string."""
+    # Since this tracks dynamic data, we only restore basic structure
+    pass
 
 
 # Register the module

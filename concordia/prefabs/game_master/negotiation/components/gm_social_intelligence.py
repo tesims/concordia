@@ -66,12 +66,15 @@ class SocialIntelligenceGM(negotiation_modules.NegotiationGMModule):
 
   # Emotion keywords for detection
   EMOTION_INDICATORS = {
-      'frustrated': ['difficult', 'stuck', 'impossible', 'unfair'],
-      'angry': ['unacceptable', 'outrageous', 'insulting', 'ridiculous'],
-      'hopeful': ['optimistic', 'possible', 'opportunity', 'potential'],
-      'confident': ['certain', 'definitely', 'assured', 'guaranteed'],
-      'anxious': ['worried', 'concerned', 'unsure', 'risky'],
-      'suspicious': ['doubt', 'question', 'unclear', 'hidden'],
+      'frustrated': ['frustrated', 'frustrating', 'difficult', 'stuck', 'impossible', 'unfair'],
+      'angry': ['angry', 'mad', 'furious', 'unacceptable', 'outrageous', 'insulting', 'ridiculous'],
+      'hopeful': ['hopeful', 'hope', 'optimistic', 'possible', 'opportunity', 'potential'],
+      'confident': ['confident', 'certain', 'definitely', 'assured', 'guaranteed'],
+      'anxious': ['anxious', 'worried', 'concerned', 'unsure', 'risky'],
+      'suspicious': ['suspicious', 'doubt', 'question', 'unclear', 'hidden'],
+      'excited': ['excited', 'thrilled', 'enthusiastic'],
+      'satisfied': ['satisfied', 'pleased', 'content'],
+      'disappointed': ['disappointed', 'let down', 'discouraged'],
   }
 
   def __init__(
@@ -169,7 +172,8 @@ class SocialIntelligenceGM(negotiation_modules.NegotiationGMModule):
 
     # Extract key claims from statement
     current_claims = []
-    if 'price' in statement.lower():
+    if ('price' in statement.lower() or 'pay' in statement.lower() or
+        '$' in statement or any(word in statement.lower() for word in ['dollar', 'cost', 'amount'])):
       # Extract price mentions
       current_claims.append(('price', statement))
     if 'willing' in statement.lower() or 'accept' in statement.lower():
@@ -192,6 +196,23 @@ class SocialIntelligenceGM(negotiation_modules.NegotiationGMModule):
                 severity=0.7,
                 round_number=round_number,
             )
+          # Check for price amount contradictions (simplified)
+          import re
+          current_amounts = re.findall(r'\$?(\d+)', claim_text)
+          past_amounts = re.findall(r'\$?(\d+)', past_statement['text'])
+          if current_amounts and past_amounts:
+            current_val = int(current_amounts[0])
+            past_val = int(past_amounts[0])
+            # Check if amounts are contradictory in context
+            if ('cannot' in claim_text.lower() and 'can' in past_statement['text'].lower() and 
+                current_val < past_val):
+              return DeceptionIndicator(
+                  actor=actor,
+                  indicator_type='inconsistency',
+                  description=f"Contradicts earlier price statement: {past_val} vs {current_val}",
+                  severity=0.8,
+                  round_number=round_number,
+              )
 
     # Store current claims
     for claim_type, claim_text in current_claims:
@@ -407,6 +428,23 @@ class SocialIntelligenceGM(negotiation_modules.NegotiationGMModule):
         report += "- Low rapport may hinder agreement\n"
 
     return report
+
+  def get_state(self) -> str:
+    """Get the component state for saving/restoring."""
+    state_dict = {
+        'emotions': len(self._emotional_history),
+        'models': len(self._mental_models),
+        'deception': len(self._deception_indicators),
+        'empathy': len(self._empathy_scores),
+        'rapport': len(self._rapport_levels),
+    }
+    return str(state_dict)
+
+  def set_state(self, state: str) -> None:
+    """Set the component state from a saved string."""
+    # Since this tracks dynamic data, we only restore basic structure
+    # Full restoration would require serializing all tracking data
+    pass
 
 
 # Register the module

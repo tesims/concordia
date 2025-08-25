@@ -151,3 +151,198 @@ class Entity(prefab_lib.Prefab):
         enhanced_prefab.params = enhanced_params
 
         return enhanced_prefab.build(model, memory_bank)
+
+
+def build_agent(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    name: str = 'AdvancedNegotiator',
+    goal: str = 'Achieve optimal negotiation outcomes',
+    negotiation_style: str = 'integrative',
+    reservation_value: float = 0.0,
+    ethical_constraints: str = 'Be honest and fair. Respect cultural differences.',
+    modules: list = None,
+    module_configs: dict = None,
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Convenience function to build an advanced negotiation agent.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        name: Name of the negotiation agent
+        goal: Primary negotiation goal
+        negotiation_style: Style of negotiation ('cooperative', 'competitive', 'integrative')
+        reservation_value: Minimum acceptable value
+        ethical_constraints: Ethical guidelines for negotiation
+        modules: List of module names to enable (e.g., ['cultural_adaptation', 'theory_of_mind'])
+        module_configs: Dictionary of module-specific configurations
+        **kwargs: Additional parameters for the agent
+        
+    Returns:
+        Configured advanced negotiation agent
+        
+    Available modules:
+        - 'cultural_adaptation': Adapt to different cultural negotiation styles
+        - 'temporal_strategy': Multi-horizon planning and relationship management
+        - 'swarm_intelligence': Collective decision-making through specialized sub-agents
+        - 'uncertainty_aware': Probabilistic reasoning under incomplete information
+        - 'strategy_evolution': Meta-learning and continual adaptation
+        - 'theory_of_mind': Emotional intelligence and recursive reasoning
+        
+    Example:
+        ```python
+        agent = build_agent(
+            model=my_model,
+            memory_bank=my_memory,
+            name="Sophie",
+            goal="Negotiate international trade agreement",
+            modules=['cultural_adaptation', 'theory_of_mind'],
+            module_configs={
+                'cultural_adaptation': {'own_culture': 'western_business'},
+                'theory_of_mind': {'max_recursion_depth': 2}
+            }
+        )
+        ```
+    """
+    if modules is None:
+        modules = []
+    if module_configs is None:
+        module_configs = {}
+    
+    params = {
+        'name': name,
+        'goal': goal,
+        'negotiation_style': negotiation_style,
+        'reservation_value': str(reservation_value),
+        'ethical_constraints': ethical_constraints,
+        'modules': ','.join(modules),
+        'module_configs': json.dumps(module_configs),
+    }
+    params.update(kwargs)
+    
+    prefab = Entity(params=params)
+    return prefab.build(model=model, memory_bank=memory_bank)
+
+
+def build_cultural_agent(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    name: str = 'CulturalNegotiator',
+    own_culture: str = 'western_business',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build an agent optimized for cross-cultural negotiations.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        name: Name of the negotiation agent
+        own_culture: Agent's cultural background ('western_business', 'east_asian', etc.)
+        **kwargs: Additional parameters for build_agent
+        
+    Returns:
+        Agent with cultural adaptation capabilities
+    """
+    return build_agent(
+        model=model,
+        memory_bank=memory_bank,
+        name=name,
+        modules=['cultural_adaptation', 'theory_of_mind'],
+        module_configs={
+            'cultural_adaptation': {'own_culture': own_culture},
+            'theory_of_mind': {'emotion_sensitivity': 0.8}
+        },
+        **kwargs
+    )
+
+
+def build_temporal_agent(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    name: str = 'TemporalNegotiator',
+    discount_factor: float = 0.9,
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build an agent optimized for long-term relationship management.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        name: Name of the negotiation agent
+        discount_factor: How much to value future outcomes (0-1)
+        **kwargs: Additional parameters for build_agent
+        
+    Returns:
+        Agent with temporal strategy capabilities
+    """
+    return build_agent(
+        model=model,
+        memory_bank=memory_bank,
+        name=name,
+        modules=['temporal_strategy', 'theory_of_mind'],
+        module_configs={
+            'temporal_strategy': {'discount_factor': discount_factor},
+        },
+        **kwargs
+    )
+
+
+def build_collective_agent(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    name: str = 'CollectiveNegotiator',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build an agent optimized for multi-party negotiations.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        name: Name of the negotiation agent
+        **kwargs: Additional parameters for build_agent
+        
+    Returns:
+        Agent with swarm intelligence capabilities
+    """
+    return build_agent(
+        model=model,
+        memory_bank=memory_bank,
+        name=name,
+        modules=['swarm_intelligence', 'uncertainty_aware'],
+        module_configs={
+            'swarm_intelligence': {'consensus_threshold': 0.7},
+        },
+        **kwargs
+    )
+
+
+def build_adaptive_agent(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    name: str = 'AdaptiveNegotiator',
+    learning_rate: float = 0.01,
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build an agent that learns and adapts strategies over time.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        name: Name of the negotiation agent
+        learning_rate: How quickly to adapt strategies (0-1)
+        **kwargs: Additional parameters for build_agent
+        
+    Returns:
+        Agent with strategy evolution capabilities
+    """
+    return build_agent(
+        model=model,
+        memory_bank=memory_bank,
+        name=name,
+        modules=['strategy_evolution', 'uncertainty_aware'],
+        module_configs={
+            'strategy_evolution': {'learning_rate': learning_rate},
+        },
+        **kwargs
+    )

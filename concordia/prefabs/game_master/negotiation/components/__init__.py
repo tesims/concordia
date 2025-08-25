@@ -23,6 +23,9 @@ from concordia.prefabs.game_master.negotiation.components import negotiation_mod
 from concordia.prefabs.game_master.negotiation.components import gm_cultural_awareness
 from concordia.prefabs.game_master.negotiation.components import gm_social_intelligence
 from concordia.prefabs.game_master.negotiation.components import gm_temporal_dynamics
+from concordia.prefabs.game_master.negotiation.components import gm_uncertainty_management
+from concordia.prefabs.game_master.negotiation.components import gm_collective_intelligence
+from concordia.prefabs.game_master.negotiation.components import gm_strategy_evolution
 
 __all__ = [
     'negotiation_state',
@@ -31,4 +34,7 @@ __all__ = [
     'gm_cultural_awareness',
     'gm_social_intelligence',
     'gm_temporal_dynamics',
+    'gm_uncertainty_management',
+    'gm_collective_intelligence',
+    'gm_strategy_evolution',
 ]

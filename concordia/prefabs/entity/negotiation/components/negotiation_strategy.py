@@ -284,10 +284,55 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
 
     def pre_observe(self, observation: str) -> None:
         """Process strategic observations."""
-        # Simple parsing to detect opponent offers
+        # Enhanced parsing to detect opponent offers and extract values
         if 'offer' in observation.lower():
-            # In real implementation, would parse actual value
+            parsed_value = self._parse_offer_value(observation)
+            if parsed_value is not None:
+                self._last_opponent_offer = parsed_value
+                # Adjust our strategy based on the offer
+                self._adjust_strategy_for_offer(parsed_value)
             self.update_state()
+    
+    def _parse_offer_value(self, text: str) -> Optional[float]:
+        """Parse monetary values from text."""
+        import re
+        
+        # Look for currency amounts like $150, 150.00, USD 150, etc.
+        patterns = [
+            r'\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # $150, $1,200.50
+            r'(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:dollars?|USD|\$)',  # 150 dollars, 150 USD
+            r'(?:USD|dollars?)\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # USD 150
+            r'\b(\d+(?:,\d{3})*(?:\.\d{2})?)\b',  # Plain numbers as fallback
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                # Take the first match and clean it
+                value_str = matches[0].replace(',', '')
+                try:
+                    return float(value_str)
+                except ValueError:
+                    continue
+        
+        return None
+    
+    def _adjust_strategy_for_offer(self, offer_value: float) -> None:
+        """Adjust strategy based on opponent's offer."""
+        if not hasattr(self, '_initial_target'):
+            self._initial_target = self._target_value
+        
+        # If offer is better than our reservation, become more cooperative
+        if ((self._negotiation_style == 'competitive' and offer_value > self._reservation_value) or
+            (self._negotiation_style == 'cooperative' and offer_value >= self._reservation_value * 0.9)):
+            # Adjust target to be more reasonable
+            gap = abs(self._target_value - offer_value)
+            self._target_value = offer_value + (gap * 0.3)
+            
+        # If offer is much worse than expected, become more firm
+        elif offer_value < self._reservation_value * 0.8:
+            # Don't adjust target downward too much
+            self._target_value = max(self._target_value, self._reservation_value * 1.1)
 
     def post_observe(self) -> None:
         """Post-observation processing."""

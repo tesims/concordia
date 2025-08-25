@@ -321,6 +321,21 @@ class TemporalDynamicsGM(negotiation_modules.NegotiationGMModule):
 
     return report
 
+  def get_state(self) -> str:
+    """Get the component state for saving/restoring."""
+    state_dict = {
+        'relationships': len(self._relationships),
+        'commitments': len(self._commitments),
+        'reputation': len(self._reputation_scores),
+        'milestones': len(self._milestones),
+    }
+    return str(state_dict)
+
+  def set_state(self, state: str) -> None:
+    """Set the component state from a saved string."""
+    # Since this tracks dynamic data, we only restore basic structure
+    pass
+
 
 # Register the module
 negotiation_modules.NegotiationGMModuleRegistry.register(

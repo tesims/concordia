@@ -191,3 +191,53 @@ class Entity(prefab_lib.Prefab):
         )
 
         return agent
+
+
+def build_agent(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    name: str = 'Negotiator',
+    goal: str = 'Reach a mutually beneficial agreement',
+    negotiation_style: str = 'integrative',
+    reservation_value: float = 0.0,
+    ethical_constraints: str = 'Be honest and fair. Do not deceive or manipulate.',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Convenience function to build a base negotiation agent.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        name: Name of the negotiation agent
+        goal: Primary negotiation goal
+        negotiation_style: Style of negotiation ('cooperative', 'competitive', 'integrative')
+        reservation_value: Minimum acceptable value
+        ethical_constraints: Ethical guidelines for negotiation
+        **kwargs: Additional parameters for the agent
+        
+    Returns:
+        Configured base negotiation agent
+        
+    Example:
+        ```python
+        agent = build_agent(
+            model=my_model,
+            memory_bank=my_memory,
+            name="Alice",
+            goal="Secure the best possible deal for my company",
+            negotiation_style="competitive",
+            reservation_value=1000.0
+        )
+        ```
+    """
+    params = {
+        'name': name,
+        'goal': goal,
+        'negotiation_style': negotiation_style,
+        'reservation_value': str(reservation_value),
+        'ethical_constraints': ethical_constraints,
+    }
+    params.update(kwargs)
+    
+    prefab = Entity(params=params)
+    return prefab.build(model=model, memory_bank=memory_bank)

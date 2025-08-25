@@ -34,11 +34,8 @@ class NegotiationGameMasterTest(unittest.TestCase):
     self.model = mock.create_autospec(
         language_model.LanguageModel, instance=True
     )
-    self.clock = game_clock.GameClock()
-    self.memory_bank = basic_associative_memory.AssociativeMemoryBank(
-        model=self.model,
-        clock=self.clock,
-    )
+    self.clock = game_clock.FixedIntervalClock()
+    self.memory_bank = basic_associative_memory.AssociativeMemoryBank()
 
   def test_basic_instantiation(self):
     """Test that we can create a negotiation game master."""

@@ -136,9 +136,9 @@ class NegotiationGameMaster(prefab_lib.Prefab):
 
     # Negotiation-specific instructions
     instructions_key = 'instructions'
-    instructions = gm_components.instructions.Instructions(
-        instructions=custom_instructions
-    )
+    instructions = gm_components.instructions.Instructions()
+    if custom_instructions:
+      instructions.set_state(custom_instructions)
 
     # Player setup
     player_names = [entity.name for entity in self.entities]
@@ -263,9 +263,10 @@ class NegotiationGameMaster(prefab_lib.Prefab):
     next_action_spec = gm_components.next_acting.NextActionSpec(
         **next_action_spec_kwargs,
         player_names=player_names,
-        default_action_spec=(
-            'negotiation action (make offer, accept offer, reject offer, '
-            'request information, make concession, or walk away)'
+        call_to_next_action_spec=(
+            'What type of negotiation action should {name} take next? '
+            'Choose from: make offer, accept offer, reject offer, '
+            'request information, make concession, or walk away.'
         ),
     )
 
@@ -328,7 +329,7 @@ class NegotiationGameMaster(prefab_lib.Prefab):
         # Special initialization for specific modules
         if module_name == 'cultural_awareness':
           # Import the module to access its class
-          from concordia.components.game_master import gm_cultural_awareness
+          from concordia.prefabs.game_master.negotiation.components import gm_cultural_awareness
           if isinstance(module_instance, gm_cultural_awareness.CulturalAwarenessGM):
             # Auto-detect participant cultures if available
             for entity in self.entities:
@@ -390,3 +391,193 @@ class NegotiationGameMaster(prefab_lib.Prefab):
     )
 
     return game_master
+
+
+def build_game_master(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
+    name: str = 'Negotiation Mediator',
+    negotiation_type: str = 'price',
+    max_rounds: int = 10,
+    gm_modules: list = None,
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Convenience function to build a negotiation game master.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        entities: List of negotiating agents
+        name: Name of the game master
+        negotiation_type: Type of negotiation ('price', 'contract', 'multi_issue')
+        max_rounds: Maximum number of negotiation rounds
+        gm_modules: List of GM module names to enable
+        **kwargs: Additional parameters for the game master
+        
+    Returns:
+        Configured negotiation game master
+        
+    Available GM modules:
+        - 'social_intelligence': Tracks emotional dynamics and relationships
+        - 'temporal_dynamics': Manages time pressure and deadlines
+        - 'cultural_awareness': Handles cross-cultural negotiation protocols
+        - 'uncertainty_management': Manages information asymmetry
+        - 'collective_intelligence': Coordinates multi-party negotiations
+        - 'strategy_evolution': Tracks strategy adaptation
+        
+    Example:
+        ```python
+        gm = build_game_master(
+            model=my_model,
+            memory_bank=my_memory,
+            entities=[agent1, agent2],
+            name="Trade Mediator",
+            negotiation_type="contract",
+            max_rounds=15,
+            gm_modules=['cultural_awareness', 'social_intelligence']
+        )
+        ```
+    """
+    if gm_modules is None:
+        gm_modules = []
+    
+    params = {
+        'name': name,
+        'negotiation_type': negotiation_type,
+        'max_rounds': max_rounds,
+        'gm_modules': gm_modules,
+        'auto_detect_modules': True,  # Enable auto-detection
+    }
+    params.update(kwargs)
+    
+    prefab = NegotiationGameMaster(params=params)
+    prefab.entities = entities
+    return prefab.build(model=model, memory_bank=memory_bank)
+
+
+def build_bilateral_negotiation(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
+    name: str = 'Bilateral Negotiation',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build a game master optimized for two-party negotiations.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        entities: List of exactly two negotiating agents
+        name: Name of the negotiation session
+        **kwargs: Additional parameters
+        
+    Returns:
+        Game master configured for bilateral negotiation
+    """
+    if len(entities) != 2:
+        raise ValueError("Bilateral negotiation requires exactly 2 entities")
+    
+    return build_game_master(
+        model=model,
+        memory_bank=memory_bank,
+        entities=entities,
+        name=name,
+        negotiation_type='bilateral',
+        gm_modules=['social_intelligence', 'temporal_dynamics'],
+        **kwargs
+    )
+
+
+def build_multilateral_negotiation(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
+    name: str = 'Multilateral Negotiation',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build a game master optimized for multi-party negotiations.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        entities: List of multiple negotiating agents
+        name: Name of the negotiation session
+        **kwargs: Additional parameters
+        
+    Returns:
+        Game master configured for multilateral negotiation
+    """
+    if len(entities) < 3:
+        raise ValueError("Multilateral negotiation requires at least 3 entities")
+    
+    return build_game_master(
+        model=model,
+        memory_bank=memory_bank,
+        entities=entities,
+        name=name,
+        negotiation_type='multilateral',
+        gm_modules=['collective_intelligence', 'uncertainty_management', 'social_intelligence'],
+        **kwargs
+    )
+
+
+def build_cultural_negotiation(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
+    name: str = 'Cross-Cultural Negotiation',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build a game master optimized for cross-cultural negotiations.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        entities: List of negotiating agents from different cultures
+        name: Name of the negotiation session
+        **kwargs: Additional parameters
+        
+    Returns:
+        Game master with cultural mediation capabilities
+    """
+    return build_game_master(
+        model=model,
+        memory_bank=memory_bank,
+        entities=entities,
+        name=name,
+        negotiation_type='cross_cultural',
+        gm_modules=['cultural_awareness', 'social_intelligence', 'temporal_dynamics'],
+        **kwargs
+    )
+
+
+def build_adaptive_negotiation(
+    model: language_model.LanguageModel,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
+    entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
+    name: str = 'Adaptive Negotiation',
+    **kwargs
+) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build a game master that adapts to agent strategies over time.
+    
+    Args:
+        model: Language model for reasoning
+        memory_bank: Memory bank for storing experiences
+        entities: List of negotiating agents
+        name: Name of the negotiation session
+        **kwargs: Additional parameters
+        
+    Returns:
+        Game master with strategy evolution tracking
+    """
+    return build_game_master(
+        model=model,
+        memory_bank=memory_bank,
+        entities=entities,
+        name=name,
+        negotiation_type='adaptive',
+        gm_modules=['strategy_evolution', 'uncertainty_management', 'social_intelligence'],
+        max_rounds=20,  # Longer sessions for adaptation
+        **kwargs
+    )
