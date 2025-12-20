@@ -16,11 +16,10 @@
 
 from collections.abc import Collection, Mapping, Sequence
 import random
-from typing import Any
+from typing import Any, override
 
 from concordia.language_model import language_model
 import numpy as np
-from typing_extensions import override
 
 
 class NoLanguageModel(language_model.LanguageModel):
@@ -30,6 +29,7 @@ class NoLanguageModel(language_model.LanguageModel):
       self,
   ) -> None:
     """Debuging model that always returns empty strings and choice 0."""
+
   pass
 
   @override
@@ -40,6 +40,8 @@ class NoLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -78,6 +80,17 @@ class RandomChoiceLanguageModel(NoLanguageModel):
 class BiasedMedianChoiceLanguageModel(NoLanguageModel):
   """A model that biases choices around the median in sample_choice."""
 
+  def __init__(self, median_probability: float = 0.8):
+    """Initializes the model.
+
+    Args:
+      median_probability: The probability of choosing the median response. Must
+        be between 0 and 1.
+    """
+    if not 0 <= median_probability <= 1:
+      raise ValueError("median_probability must be between 0 and 1")
+    self._median_probability = median_probability
+
   @override
   def sample_choice(
       self,
@@ -91,16 +104,15 @@ class BiasedMedianChoiceLanguageModel(NoLanguageModel):
 
     if seed is not None:
       np.random.seed(seed)
-
-    median_index = len(responses) // 2
+      random.seed(seed)
 
     rand_val = np.random.rand()
 
-    if rand_val < 0.8:
-      choice_index = median_index
-    elif rand_val < 0.9:
-      choice_index = min(median_index + 1, len(responses) - 1)
+    if rand_val < self._median_probability:
+      # Choose the median
+      choice_index = len(responses) // 2
     else:
-      choice_index = max(median_index - 1, 0)
+      # Choose any response uniformly at random
+      choice_index = random.randint(0, len(responses) - 1)
 
     return choice_index, responses[choice_index], {}

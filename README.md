@@ -3,6 +3,7 @@
 *A library for generative social simulation*
 
 <!-- GITHUB -->
+<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
 [![Python](https://img.shields.io/pypi/pyversions/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI version](https://img.shields.io/pypi/v/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI tests](../../actions/workflows/pypi-test.yml/badge.svg)](../../actions/workflows/pypi-test.yml)
@@ -10,7 +11,7 @@
 [![Examples](../../actions/workflows/test-examples.yml/badge.svg)](../../actions/workflows/test-examples.yml)
 <!-- /GITHUB -->
 
-[Concordia Tech Report](https://arxiv.org/abs/2312.03664)
+[Concordia Tech Report](https://arxiv.org/abs/2312.03664) | [Concordia Design Pattern](https://arxiv.org/abs/2507.08892) | [Code Cheat Sheet](examples/concordia_cheat_sheet.md)
 
 ## About
 
@@ -38,8 +39,6 @@ integrate with real applications and services.
 
 ## Installation
 
-### `pip` install
-
 [Concordia is available on PyPI](https://pypi.python.org/pypi/gdm-concordia)
 and can be installed using:
 
@@ -47,10 +46,27 @@ and can be installed using:
 pip install gdm-concordia
 ```
 
-### Manual install
+After doing this you can then `import concordia` in your own code.
 
-If you want to work on the Concordia source code, you can perform an editable
-installation as follows:
+## Development
+
+### Codespace
+
+The easiest way to work on the Concordia source code, is to use our
+pre-configured development environment via a
+[Github CodeSpace](https://github.com/features/codespaces).
+
+This provides a tested development workflow that allows for reproducible builds,
+and minimizes dependency management. We strongly advise preparing all Pull
+Requests for Concordia via this workflow.
+
+### Manual setup
+
+If you want to work on the Concordia source code within your own development
+environment you will have to handle installation and dependency management
+yourself.
+
+For example, you can perform an editable installation as follows:
 
 1.  Clone Concordia:
 
@@ -59,27 +75,35 @@ installation as follows:
     cd concordia
     ```
 
-2.  Install Concordia:
+2.  Create and activate a virtual environment:
+
+    ```shell
+    python -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  Install Concordia:
 
     ```shell
     pip install --editable .[dev]
     ```
 
-3.  (Optional) Test the installation:
+4.  Test the installation:
 
     ```shell
     pytest --pyargs concordia
     ```
 
-### Devcontainer
+5.  Install any additional language model dependencies you will need, e.g.:
 
-This project includes a pre-configured development environment
-([devcontainer](https://containers.dev)).
+    ```shell
+    pip install .[google]
+    pip install --requirement=examples/requirements.in
+    ```
 
-You can launch a working development environment with one click, using e.g.
-[Github Codespaces](https://github.com/features/codespaces) or the
-[VSCode Containers](https://code.visualstudio.com/docs/remote/containers-tutorial)
-extension.
+    Note that at this stage you may find that your development environment is
+    not supported by some underlying dependencies and you will need to do some
+    dependency management.
 
 ## Bring your own LLM
 
@@ -111,6 +135,7 @@ The agents used in the following example implement exactly these questions:
 
 If you use Concordia in your work, please cite the accompanying article:
 
+<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
 ```bibtex
 @article{vezhnevets2023generative,
   title={Generative agent-based modeling with actions grounded in physical,

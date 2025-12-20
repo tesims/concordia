@@ -33,7 +33,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='gdm-concordia',
-    version='2.0.1',
+    version='2.1.0',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',
@@ -58,49 +58,76 @@ setuptools.setup(
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     packages=setuptools.find_packages(include=['concordia', 'concordia.*']),
     package_data={},
-    python_requires='>=3.11',
+    python_requires='>=3.12',
     install_requires=(
         'absl-py',
-        'boto3',
-        'google-cloud-aiplatform',
-        'google-generativeai>=0.8',
         'ipython',
-        'jinja2',
-        'langchain-community',
         'matplotlib',
-        'mistralai',
         'numpy>=1.26',
-        'ollama',
-        'openai>=1.3.0',
         'pandas',
         'python-dateutil',
         'reactivex',
-        'retry',
+        'tenacity',
         'termcolor',
-        'together',
-        'transformers',
-        'typing-extensions',
     ),
     extras_require={
-        # Used in development.
+        'amazon': [
+            # Used in contrib.language_models.amazon
+            'boto3',
+        ],
         'dev': [
+            # Used in development
             'build',
             'isort',
             'jupyter',
-            'pipreqs',
             'pip-tools',
             'pyink',
             'pylint',
             'pytest-xdist',
             'pytype',
             'twine',
+        ],
+        'google': [
+            # Used in concordia.contrib.language_models.google
+            'google-cloud-aiplatform',
+            'google-generativeai',
+        ],
+        'huggingface': [
+            # Used in concordia.contrib.language_models.huggingface
+            'accelerate',
+            'torch',
+            'transformers',
+        ],
+        'langchain': [
+            # Used in concordia.contrib.language_models.langchain
+            'langchain-community',
+        ],
+        'mistralai': [
+            # Used in concordia.contrib.language_models.mistralai
+            'mistralai',
+        ],
+        'ollama': [
+            # Used in concordia.contrib.language_models.ollama
+            'ollama',
+        ],
+        'openai': [
+            # Used in concordia.contrib.language_models.openai
+            'openai>=1.3.0',
+        ],
+        'together': [
+            # Used in concordia.contrib.language_models.together
+            'together',
+        ],
+        'vllm': [
+            # Used in concordia.contrib.language_models.vllm
+            'vllm',
         ],
     },
 )

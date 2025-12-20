@@ -15,12 +15,12 @@
 """A simple acting component that aggregates contexts from components."""
 
 from collections.abc import Sequence
+from typing import override
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
-from typing_extensions import override
 
 
 class ConcatActComponent(
@@ -41,6 +41,7 @@ class ConcatActComponent(
       model: language_model.LanguageModel,
       component_order: Sequence[str] | None = None,
       prefix_entity_name: bool = True,
+      randomize_choices: bool = True,
   ):
     """Initializes the agent.
 
@@ -57,7 +58,9 @@ class ConcatActComponent(
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
       prefix_entity_name: Whether to prefix the entity name to the output of
-        `get_action_attempt` when the `action_spec` output type is `FREE`. 
+        `get_action_attempt` when the `action_spec` output type is `FREE`.
+      randomize_choices: Whether to randomize the choices in the
+        `get_action_attempt` when the `action_spec` output type is `CHOICE`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -66,6 +69,7 @@ class ConcatActComponent(
     super().__init__()
     self._model = model
     self._prefix_entity_name = prefix_entity_name
+    self._randomize_choices = randomize_choices
     if component_order is None:
       self._component_order = None
     else:
@@ -82,15 +86,12 @@ class ConcatActComponent(
       contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
-      return '\n'.join(
-          context for context in contexts.values() if context
-      )
+      return '\n'.join(context for context in contexts.values() if context)
     else:
-      order = self._component_order + tuple(sorted(
-          set(contexts.keys()) - set(self._component_order)))
-      return '\n'.join(
-          contexts[name] for name in order if contexts[name]
+      order = self._component_order + tuple(
+          sorted(set(contexts.keys()) - set(self._component_order))
       )
+      return '\n'.join(contexts[name] for name in order if contexts[name])
 
   @override
   def get_action_attempt(
@@ -120,7 +121,9 @@ class ConcatActComponent(
       return output
     elif action_spec.output_type in entity_lib.CHOICE_ACTION_TYPES:
       idx = prompt.multiple_choice_question(
-          question=call_to_action, answers=action_spec.options
+          question=call_to_action,
+          answers=action_spec.options,
+          randomize_choices=self._randomize_choices,
       )
       output = action_spec.options[idx]
       self._log(output, prompt)
@@ -139,21 +142,30 @@ class ConcatActComponent(
       try:
         return str(float(sampled_text))
       except ValueError:
-        return '0.0'
+        return 'nan'
     else:
       raise NotImplementedError(
           f'Unsupported output type: {action_spec.output_type}. '
           'Supported output types are: FREE, CHOICE, and FLOAT.'
       )
 
-  def _log(self,
-           result: str,
-           prompt: interactive_document.InteractiveDocument):
+  def _log(self, result: str, prompt: interactive_document.InteractiveDocument):
     self._logging_channel({
         'Summary': f'Action: {result}',
         'Value': result,
         'Prompt': prompt.view().text().splitlines(),
     })
+
+  def get_context_concat_order(self) -> Sequence[str] | None:
+    """Get order to concatenate pre_act values of context components.
+
+    Returns:
+      A sequence of component names in order they will be concatenated. If
+      the component order is not specified, then the order will be the iteration
+      order of the `ComponentContextMapping` passed to `get_action_attempt` but
+      this function will return None.
+    """
+    return self._component_order
 
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to a dictionary."""

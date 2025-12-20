@@ -14,9 +14,9 @@
 """A mock Language Model."""
 
 from collections.abc import Collection, Sequence
+from typing import override
 
 from concordia.language_model import language_model
-from typing_extensions import override
 
 
 class MockModel(language_model.LanguageModel):
@@ -40,6 +40,8 @@ class MockModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -48,6 +50,8 @@ class MockModel(language_model.LanguageModel):
         max_tokens,
         terminators,
         temperature,
+        top_p,
+        top_k,
         timeout,
         seed,
     )

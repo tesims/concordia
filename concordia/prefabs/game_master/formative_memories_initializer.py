@@ -97,7 +97,7 @@ class GameMaster(prefab_lib.Prefab):
     next_game_master_key = (
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
     next_game_master = (
-        gm_components.next_game_master.FormativeMemoriesInitializer(
+        gm_components.formative_memories_initializer.FormativeMemoriesInitializer(
             model=model,
             next_game_master_name=next_game_master_name,
             player_names=player_names,
@@ -126,6 +126,9 @@ class GameMaster(prefab_lib.Prefab):
         action_spec=entity_lib.skip_this_step_action_spec(),
     )
 
+    terminate_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
+    terminate = gm_components.terminate.NeverTerminate()
+
     components_of_game_master = {
         instructions_key: instructions,
         examples_synchronous_key: examples_synchronous,
@@ -136,6 +139,7 @@ class GameMaster(prefab_lib.Prefab):
         next_game_master_key: next_game_master,
         make_observation_key: make_observation,
         skip_next_action_spec_key: skip_next_action_spec,
+        terminate_key: terminate,
     }
 
     component_order = list(components_of_game_master.keys())

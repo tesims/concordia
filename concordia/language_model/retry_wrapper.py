@@ -14,12 +14,11 @@
 
 """Wrapper to retry calls to an underlying language model."""
 
-from collections.abc import Collection, Sequence, Mapping
-from typing import Any, Type
+from collections.abc import Collection, Mapping, Sequence
+from typing import Any, Type, override
 
 from concordia.language_model import language_model
-import retry
-from typing_extensions import override
+import tenacity
 
 
 class RetryLanguageModel(language_model.LanguageModel):
@@ -28,10 +27,14 @@ class RetryLanguageModel(language_model.LanguageModel):
   def __init__(
       self,
       model: language_model.LanguageModel,
+      *,
       retry_on_exceptions: Collection[Type[Exception]] = (Exception,),
       retry_tries: int = 3,
-      retry_delay: float = 2.,
+      retry_delay: float = 2.0,
       jitter: tuple[float, float] = (0.0, 1.0),
+      exponential_backoff: bool = True,
+      backoff_factor: float = 2.0,
+      max_delay: float = 300.0,
   ) -> None:
     """Wrap the underlying language model with retries on given exceptions.
 
@@ -41,12 +44,23 @@ class RetryLanguageModel(language_model.LanguageModel):
       retry_tries: number of retries before failing.
       retry_delay: minimum delay between retries.
       jitter: tuple of minimum and maximum jitter to add to the retry.
+      exponential_backoff: whether to enable exponential backoff.
+      backoff_factor: The factor to use for exponential backoff.
+      max_delay: The maximum delay between retries.
     """
     self._model = model
-    self._retry_on_exceptions = tuple(retry_on_exceptions)
-    self._retry_tries = retry_tries
-    self._retry_delay = retry_delay
-    self._jitter = jitter
+    if not exponential_backoff:
+      wait = tenacity.wait_fixed(retry_delay)
+    else:
+      wait = tenacity.wait_exponential(
+          multiplier=backoff_factor, min=retry_delay, max=max_delay
+      )
+    wait += tenacity.wait_random(*jitter)
+    self._retry_decorator = tenacity.retry(
+        retry=tenacity.retry_if_exception_type(tuple(retry_on_exceptions)),
+        wait=wait,
+        stop=tenacity.stop_after_attempt(retry_tries),
+    )
 
   @override
   def sample_text(
@@ -56,11 +70,13 @@ class RetryLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    @retry.retry(self._retry_on_exceptions, tries=self._retry_tries,
-                 delay=self._retry_delay, jitter=self._jitter)
+
+    @self._retry_decorator
     def _sample_text(
         model,
         prompt,
@@ -68,6 +84,9 @@ class RetryLanguageModel(language_model.LanguageModel):
         max_tokens=max_tokens,
         terminators=terminators,
         temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        timeout=timeout,
         seed=seed,
     ):
       return model.sample_text(
@@ -75,6 +94,9 @@ class RetryLanguageModel(language_model.LanguageModel):
           max_tokens=max_tokens,
           terminators=terminators,
           temperature=temperature,
+          top_p=top_p,
+          top_k=top_k,
+          timeout=timeout,
           seed=seed,
       )
 
@@ -84,6 +106,9 @@ class RetryLanguageModel(language_model.LanguageModel):
         max_tokens=max_tokens,
         terminators=terminators,
         temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        timeout=timeout,
         seed=seed,
     )
 
@@ -95,8 +120,7 @@ class RetryLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
-    @retry.retry(self._retry_on_exceptions, tries=self._retry_tries,
-                 delay=self._retry_delay, jitter=self._jitter)
+    @self._retry_decorator
     def _sample_choice(model, prompt, responses, *, seed):
       return model.sample_choice(prompt, responses, seed=seed)
 

@@ -33,10 +33,19 @@ class GameMaster(prefab_lib.Prefab):
   """
 
   description: str = 'A game master specialized for handling conversation.'
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str | bool] = dataclasses.field(
       default_factory=lambda: {
+          # `name`: the name of this game master.
           'name': 'conversation rules',
+          # `next_game_master_name`: pass control to this game master once
+          #  the conversation is finished.
           'next_game_master_name': 'default rules',
+          # `acting_order`: how to determine whose turn is next. Choose from:
+          # 'fixed', 'random', or 'game_master_choice'.
+          'acting_order': 'game_master_choice',
+          # `can_terminate_simulation`: controls whether or not this game master
+          # can decide to trigger the end of the simulation.
+          'can_terminate_simulation': True,
       }
   )
   entities: (
@@ -60,6 +69,11 @@ class GameMaster(prefab_lib.Prefab):
     name = self.params.get('name', 'conversation rules')
     next_game_master_name = self.params.get('next_game_master_name',
                                             'default rules')
+    acting_order = self.params.get(
+        'acting_order', 'game_master_choice'
+    )
+    can_terminate_simulation = self.params.get(
+        'can_terminate_simulation', True)
 
     player_names = [entity.name for entity in self.entities]
 
@@ -119,7 +133,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     send_events_to_players_key = (
-        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
+        '__send_events_to_players__'
     )
     send_events_to_players = (
         gm_components.event_resolution.SendEventToRelevantPlayers(
@@ -138,12 +152,23 @@ class GameMaster(prefab_lib.Prefab):
             display_events_key,
         ],
     )
-    next_actor_key = (
-        gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY)
-    next_actor = gm_components.next_acting.NextActing(
-        **next_acting_kwargs,
-        player_names=player_names,
-    )
+    next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
+    if acting_order == 'fixed':
+      next_actor = gm_components.next_acting.NextActingInFixedOrder(
+          sequence=player_names,
+      )
+    elif acting_order == 'game_master_choice':
+      next_actor = gm_components.next_acting.NextActing(
+          **next_acting_kwargs,
+          player_names=player_names,
+      )
+    elif acting_order == 'random':
+      next_actor = gm_components.next_acting.NextActingInRandomOrder(
+          player_names=player_names,
+      )
+    else:
+      raise ValueError(f'Unsupported acting order: {acting_order}')
+
     next_action_spec_key = (
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY)
     next_action_spec = gm_components.next_acting.FixedActionSpec(
@@ -208,6 +233,11 @@ class GameMaster(prefab_lib.Prefab):
         next_action_spec_key: next_action_spec,
         event_resolution_key: event_resolution,
     }
+
+    if not can_terminate_simulation:
+      terminate_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
+      terminate = gm_components.terminate.NeverTerminate()
+      components_of_game_master[terminate_key] = terminate
 
     component_order = list(components_of_game_master.keys())
 

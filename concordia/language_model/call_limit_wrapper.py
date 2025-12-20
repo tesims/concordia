@@ -15,10 +15,9 @@
 """Wrapper to limit calls to an underlying language model."""
 
 from collections.abc import Collection, Mapping, Sequence
-from typing import Any
+from typing import Any, override
 
 from concordia.language_model import language_model
-from typing_extensions import override
 
 
 class CallLimitLanguageModel(language_model.LanguageModel):
@@ -53,6 +52,8 @@ class CallLimitLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -71,6 +72,8 @@ class CallLimitLanguageModel(language_model.LanguageModel):
         max_tokens=max_tokens,
         terminators=terminators,
         temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
         timeout=timeout,
         seed=seed,
     )

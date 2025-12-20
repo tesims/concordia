@@ -129,15 +129,16 @@ class QuestionOfRecentMemories(
     ])
 
     prompt = interactive_document.InteractiveDocument(self._model)
-    prompt.statement(f'Recent observations of {agent_name}:\n{mems}')
-
-    if self._clock_now is not None:
-      prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     component_states = '\n'.join(
         [self._component_pre_act_display(key) for key in self._components]
     )
     prompt.statement(component_states)
+
+    prompt.statement(f'Recent observations of {agent_name}:\n{mems}')
+
+    if self._clock_now is not None:
+      prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     question = self._question.format(agent_name=agent_name)
     result = prompt.open_question(
@@ -355,6 +356,29 @@ class BestOptionPerception(QuestionOfRecentMemories):
     super().__init__(
         question=BEST_OPTION_PERCEPTION_QUESTION,
         answer_prefix="{agent_name}'s best course of action is ",
+        add_to_memory=False,
+        **kwargs,
+    )
+
+
+class CombinedPerception(QuestionOfRecentMemories):
+  """This component answers the three key questions in one go."""
+
+  def __init__(self, **kwargs):
+    agent_name = '{agent_name}'
+    question = f"""
+Consider the following questions:
+1. {SITUATION_PERCEPTION_QUESTION.format(agent_name=agent_name)}
+2. {SELF_PERCEPTION_QUESTION.format(agent_name=agent_name)}
+3. {PERSON_BY_SITUATION_QUESTION.format(agent_name=agent_name)}
+
+Provide the answers to these three questions in three separate paragraphs, in order."""
+    default_pre_act_label = f'\nCombined Perception for {agent_name}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
+    super().__init__(
+        question=question,
+        answer_prefix='',
         add_to_memory=False,
         **kwargs,
     )
