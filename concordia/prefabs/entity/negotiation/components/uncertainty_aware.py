@@ -494,6 +494,14 @@ RELATIONSHIP_INFO: [quality estimate 0-1] [confidence 0-1]"""
                 self._beliefs[name].confidence = belief_data.get('confidence', self._beliefs[name].confidence)
                 self._beliefs[name].evidence_count = belief_data.get('evidence_count', self._beliefs[name].evidence_count)
 
+    def pre_observe(self, observation: str) -> str:
+        """Process observation for uncertainty updates."""
+        return ""
+
+    def post_observe(self) -> str:
+        """Post-observation processing."""
+        return ""
+
     def get_action_attempt(
         self,
         context: Any,  # ComponentContextMapping
@@ -501,30 +509,30 @@ RELATIONSHIP_INFO: [quality estimate 0-1] [confidence 0-1]"""
     ) -> str:
         """Generate uncertainty-aware negotiation action with robust decision making."""
         situation_context = action_spec.call_to_action
-
+        
         # Update beliefs from current context
         self._update_beliefs_from_context(situation_context)
-
+        
         # Analyze uncertainty in the situation
         uncertainty_analysis = self._analyze_uncertainty_context(situation_context)
-
+        
         # Generate scenarios for decision making
         scenarios = self._generate_scenarios()
-
+        
         # Calculate information values
         info_values = self._calculate_information_values(situation_context)
-
+        
         # Calculate overall confidence level
         avg_confidence = np.mean([belief.confidence for belief in self._beliefs.values()])
         uncertainty_level = 1 - avg_confidence
-
+        
         # Decide whether to gather information or make a proposal
         should_gather_info = (
-            avg_confidence < self._confidence_threshold and
-            info_values and
+            avg_confidence < self._confidence_threshold and 
+            info_values and 
             info_values[0].net_value > 0
         )
-
+        
         if should_gather_info:
             # Generate information-gathering action
             top_info_question = info_values[0]
@@ -550,16 +558,16 @@ Generate a negotiation action that:
 5. Shows professional competence despite information gaps
 
 Action:"""
-
+        
         else:
             # Generate proposal/response action with uncertainty management
             best_scenario = max(scenarios, key=lambda s: s.expected_value * s.probability)
             worst_scenario = min(scenarios, key=lambda s: s.expected_value * s.probability)
-
+            
             # Get confidence intervals for key beliefs
             reservation_ci = self._beliefs['counterpart_reservation'].get_confidence_interval()
             flexibility_ci = self._beliefs['counterpart_flexibility'].get_confidence_interval()
-
+            
             prompt = f"""Based on uncertainty analysis and scenario planning, generate a robust negotiation action:
 
 Situation: {situation_context}
@@ -581,19 +589,19 @@ Risk Management:
 Generate a negotiation action that:
 1. Makes a robust proposal that works across scenarios
 2. Acknowledges and manages key uncertainties
-3. Includes contingencies for different outcomes
+3. Includes contingencies for different outcomes  
 4. Demonstrates analytical sophistication
 5. Balances confidence with appropriate caution given uncertainty level
 
 Action:"""
 
         response = self._model.sample_text(prompt)
-
+        
         # Clean up response
         action = response.strip()
         if action.lower().startswith('action:'):
             action = action[7:].strip()
-
+        
         # Add uncertainty framing based on confidence level
         if should_gather_info:
             action = f"To make the best decision for both of us, {action.lower()}"
@@ -601,7 +609,7 @@ Action:"""
             action = f"While there are several factors to consider, {action.lower()}"
         elif avg_confidence > 0.8:
             action = f"Based on our analysis, {action.lower()}"
-
+        
         return action
 
     def update(self) -> None:

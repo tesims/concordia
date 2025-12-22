@@ -663,6 +663,15 @@ class SwarmIntelligence(entity_component.ActingComponent):
             if len(agent._performance_history) > 20:
                 agent._performance_history = agent._performance_history[-15:]
 
+    def pre_observe(self, observation: str) -> str:
+        """Process observation for swarm intelligence."""
+        # Analyze observation across sub-agents
+        return ""
+
+    def post_observe(self) -> str:
+        """Post-observation processing."""
+        return ""
+
     def get_action_attempt(
         self,
         context: Any,  # ComponentContextMapping
@@ -670,19 +679,19 @@ class SwarmIntelligence(entity_component.ActingComponent):
     ) -> str:
         """Generate collective intelligence-based negotiation action."""
         situation_context = action_spec.call_to_action
-
+        
         # Collect analyses from all sub-agents
         analyses = self._collect_analyses(situation_context)
-
+        
         # Calculate expertise weights for current context
         weights = self._calculate_weights(situation_context)
-
+        
         # Build collective decision
         collective_decision = self._build_collective_decision(analyses, weights)
-
+        
         # Store decision for post_act processing
         self._decision_history.append(collective_decision)
-
+        
         # Generate action based on collective wisdom
         prompt = f"""Based on collective intelligence from multiple specialized agents, generate a negotiation action:
 
@@ -699,7 +708,7 @@ Expert Analysis Summary:"""
             weight = weights.get(agent_type, 0)
             if weight > 0.1:  # Only include agents with significant weight
                 prompt += f"\n- {agent_type.replace('_', ' ').title()}: {analysis.recommendations[0] if analysis.recommendations else analysis.analysis}"
-
+        
         prompt += f"""
 
 Compromise Considerations: {'; '.join(collective_decision.compromise_elements) if collective_decision.compromise_elements else 'None needed'}
@@ -714,18 +723,18 @@ Generate a negotiation action that:
 Action:"""
 
         response = self._model.sample_text(prompt)
-
+        
         # Clean up response
         action = response.strip()
         if action.lower().startswith('action:'):
             action = action[7:].strip()
-
+        
         # Add collective confidence indicator if high confidence
         if collective_decision.confidence > 0.8:
             action = f"Based on our comprehensive analysis, {action.lower()}"
         elif collective_decision.confidence < 0.4:
             action = f"While there are multiple perspectives to consider, {action.lower()}"
-
+        
         return action
 
     def observe(self, observation: str) -> None:

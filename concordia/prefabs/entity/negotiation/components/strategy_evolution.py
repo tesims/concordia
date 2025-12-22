@@ -505,6 +505,14 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
         tournament = random.sample(list(fitness_dict.keys()), min(tournament_size, len(fitness_dict)))
         return max(tournament, key=lambda s: fitness_dict[s])
 
+    def pre_observe(self, observation: str) -> str:
+        """Process observation for strategy evolution."""
+        return ""
+
+    def post_observe(self) -> str:
+        """Post-observation processing."""
+        return ""
+
     def get_action_attempt(
         self,
         context: Any,  # ComponentContextMapping
@@ -512,17 +520,17 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
     ) -> str:
         """Generate evolved negotiation action based on adaptive strategies."""
         situation_context = action_spec.call_to_action
-
+        
         # Analyze context for strategy selection
         context_features = self._analyze_negotiation_context(situation_context)
-
+        
         # Select best strategy for current context
         selected_strategy = self._select_strategy_for_context(context_features)
-
+        
         # Update current strategy
         if selected_strategy != self._current_strategy:
             self._current_strategy = selected_strategy
-
+        
         # Start episode tracking
         self._current_episode = NegotiationEpisode(
             context=situation_context,
@@ -535,7 +543,7 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
             success_metrics={},
             lessons_learned=[]
         )
-
+        
         # Generate action based on evolved strategy
         strategy = self._current_strategy
         prompt = f"""Based on evolved strategy and meta-learning, generate a negotiation action:
@@ -547,7 +555,7 @@ Current Strategy: {strategy.strategy_id} (Generation {strategy.generation})
 Strategy Profile:
 - Core Tactics: {', '.join(strategy.tactics)}
 - Aggressiveness: {strategy.parameters.get('aggressiveness', 0.5):.2f}
-- Flexibility: {strategy.parameters.get('flexibility', 0.5):.2f}
+- Flexibility: {strategy.parameters.get('flexibility', 0.5):.2f}  
 - Risk Tolerance: {strategy.parameters.get('risk_tolerance', 0.5):.2f}
 - Patience Level: {strategy.parameters.get('patience', 0.5):.2f}
 - Creativity: {strategy.parameters.get('creativity', 0.5):.2f}
@@ -576,31 +584,31 @@ Generate a negotiation action that:
 Action:"""
 
         response = self._model.sample_text(prompt)
-
+        
         # Clean up response
         action = response.strip()
         if action.lower().startswith('action:'):
             action = action[7:].strip()
-
+        
         # Apply strategy-specific modifications
         aggressiveness = strategy.parameters.get('aggressiveness', 0.5)
         flexibility = strategy.parameters.get('flexibility', 0.5)
-
+        
         # Modify action based on strategy parameters
         if aggressiveness > 0.7:
             action = f"Let me be direct: {action.lower()}"
         elif aggressiveness < 0.3 and flexibility > 0.6:
             action = f"I'm open to exploring options here - {action.lower()}"
-
+        
         # Add strategy evolution context if this is an evolved strategy
         if strategy.generation > 2:
             action = f"Based on our refined approach, {action.lower()}"
-
+        
         # Track action for learning
         if self._current_episode:
             self._current_episode.actions_taken.append(action)
             self._current_episode.duration += 1
-
+        
         return action
 
     def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
