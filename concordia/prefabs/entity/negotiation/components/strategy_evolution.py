@@ -422,7 +422,7 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
 • Aggressiveness: {strategy.parameters.get('aggressiveness', 0.5):.1f}
 • Flexibility: {strategy.parameters.get('flexibility', 0.5):.1f}
 • Risk Tolerance: {strategy.parameters.get('risk_tolerance', 0.5):.1f}
-• Historical Performance: {np.mean(strategy.fitness_history) if strategy.fitness_history else 'New strategy':.2f}
+• Historical Performance: {f"{np.mean(strategy.fitness_history):.2f}" if strategy.fitness_history else 'New strategy'}
 
 **Context Analysis**:
 • Stakes Level: {context_features['stakes']:.1f} ({'High' if context_features['stakes'] > 0.6 else 'Medium' if context_features['stakes'] > 0.3 else 'Low'})
@@ -633,13 +633,13 @@ Action:"""
 
         return f"\n{guidance}"
 
-    def post_act(self, action: str, action_spec: entity_lib.ActionSpec) -> str:
+    def post_act(self, action_attempt: str) -> str:
         """Update evolution state after action."""
         if self._current_episode:
-            self._current_episode.actions_taken.append(action)
+            self._current_episode.actions_taken.append(action_attempt)
             self._current_episode.duration += 1
 
-        return action
+        return ""
 
     def observe(self, observation: str) -> None:
         """Process observations for strategy learning."""

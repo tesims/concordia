@@ -83,14 +83,14 @@ class Entity(prefab_lib.Prefab):
             negotiation_style=style,
             reservation_value=reservation,
             ethical_constraints=ethics,
-            verbose=True,
+            verbose=False,
         )
 
         # Create negotiation memory
         neg_memory = negotiation_memory.NegotiationMemory(
             agent_name=agent_name,
             memory_bank=memory_bank,
-            verbose=True,
+            verbose=False,
         )
 
         # Create negotiation strategy
@@ -99,7 +99,7 @@ class Entity(prefab_lib.Prefab):
             negotiation_style=style,
             reservation_value=reservation,
             target_value=reservation * 2.0,  # Default target is 2x reservation
-            verbose=True,
+            verbose=False,
         )
 
         # Create question components for context and reasoning

@@ -482,13 +482,13 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
 
         return f"\n{guidance}"
 
-    def post_act(self, action: str, action_spec: entity_lib.ActionSpec) -> str:
+    def post_act(self, action_attempt: str) -> str:
         """Update theory of mind state after action."""
         # Analyze our own action for emotional impact
-        our_emotional_tone = self._detect_emotions(action)
+        our_emotional_tone = self._detect_emotions(action_attempt)
         self._emotion_history.append(our_emotional_tone)
 
-        return action
+        return ""
 
     def observe(self, observation: str) -> None:
         """Process observations for theory of mind insights."""

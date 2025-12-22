@@ -442,15 +442,15 @@ RELATIONSHIP_INFO: [quality estimate 0-1] [confidence 0-1]"""
 
         return f"\n{guidance}"
 
-    def post_act(self, action: str, action_spec: entity_lib.ActionSpec) -> str:
+    def post_act(self, action_attempt: str) -> str:
         """Update uncertainty state based on action taken."""
         # Analyze action for information gathering or commitment
-        if '?' in action or 'ask' in action.lower() or 'question' in action.lower():
+        if '?' in action_attempt or 'ask' in action_attempt.lower() or 'question' in action_attempt.lower():
             # Information gathering action
             for belief in self._beliefs.values():
                 belief.confidence = min(0.95, belief.confidence + 0.02)  # Small confidence boost
 
-        return action
+        return ""
 
     def observe(self, observation: str) -> None:
         """Process observations to update beliefs."""
