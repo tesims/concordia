@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- Negotiation framework with modular cognitive components for agents
+  - Theory of Mind component for modeling other parties' mental states
+  - Cultural Adaptation component with built-in cultural profiles
+  - Temporal Strategy component for relationship and deadline management
+  - Uncertainty Awareness component for reasoning under incomplete information
+  - Swarm Intelligence component for multi-party coordination
+  - Strategy Evolution component for learning from negotiation outcomes
+- Negotiation Game Master prefab with specialized GM components
+  - Social Intelligence module for tracking dynamics and detecting deception
+  - Cultural Awareness module for enforcing norms across cultures
+  - Temporal Dynamics module for deadline and commitment management
+  - Uncertainty Management module for controlling information asymmetry
+  - Collective Intelligence module for monitoring coalitions
+  - Strategy Evolution module for observing adaptation patterns
+- Negotiation state tracking and validation components
+- Base and advanced negotiator agent builders
+- Unit tests for negotiation modules 
+
 ## [2.1.0] - 2025-08-18
 
 ### Changed
