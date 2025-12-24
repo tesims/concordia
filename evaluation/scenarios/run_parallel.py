@@ -25,29 +25,39 @@ def get_gpu_count():
     return 0
 
 
-def run_scenario_on_gpu(scenario: str, gpu_id: int, quick: bool = False):
+def run_scenario_on_gpu(scenario: str, gpu_id: int, quick: bool = False, script_dir: str = None):
     """Run a scenario on a specific GPU."""
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
+    # Use the directory where this script is located
+    if script_dir is None:
+        script_dir = Path(__file__).parent.resolve()
+
+    run_experiment_path = script_dir / "run_experiment.py"
+    output_dir = script_dir / f"outputs_{scenario}"
+
     cmd = [
         sys.executable,
-        "run_experiment.py",
+        str(run_experiment_path),
         "--tier", "2",
         "--scenario", scenario,
-        "--output-dir", f"./outputs_{scenario}",
+        "--output-dir", str(output_dir),
     ]
 
     if quick:
         cmd.append("--quick")
 
     print(f"[GPU {gpu_id}] Starting {scenario}...")
-    return subprocess.Popen(cmd, env=env)
+    return subprocess.Popen(cmd, env=env, cwd=str(script_dir))
 
 
-def merge_results(scenarios: list, output_file: str = "merged_activations.pt"):
+def merge_results(scenarios: list, output_file: str = "merged_activations.pt", script_dir: Path = None):
     """Merge results from all scenarios."""
     print("\nMerging results...")
+
+    if script_dir is None:
+        script_dir = Path(__file__).parent.resolve()
 
     all_activations = {}
     all_labels = {
@@ -60,7 +70,7 @@ def merge_results(scenarios: list, output_file: str = "merged_activations.pt"):
     }
 
     for scenario in scenarios:
-        output_dir = Path(f"./outputs_{scenario}")
+        output_dir = script_dir / f"outputs_{scenario}"
 
         # Find the run directory
         run_dirs = list(output_dir.glob("run_*"))
@@ -101,11 +111,12 @@ def merge_results(scenarios: list, output_file: str = "merged_activations.pt"):
         "config": {"scenarios": scenarios, "merged": True},
     }
 
-    torch.save(merged, output_file)
-    print(f"\nMerged results saved to: {output_file}")
+    output_path = script_dir / output_file
+    torch.save(merged, output_path)
+    print(f"\nMerged results saved to: {output_path}")
     print(f"Total samples: {len(all_labels['gm_labels'])}")
 
-    return output_file
+    return str(output_path)
 
 
 def main():
@@ -115,11 +126,13 @@ def main():
     args = parser.parse_args()
 
     scenarios = ["ultimatum_bluff", "hidden_value", "promise_break"]
+    script_dir = Path(__file__).parent.resolve()
 
     print("=" * 60)
     print("PARALLEL DECEPTION PROBING EXPERIMENT")
     print("=" * 60)
     print(f"Started: {datetime.now().isoformat()}")
+    print(f"Script directory: {script_dir}")
 
     # Check GPUs
     gpu_count = get_gpu_count()
@@ -132,7 +145,7 @@ def main():
         # Run sequentially if not enough GPUs
         for i, scenario in enumerate(scenarios):
             gpu_id = i % max(1, gpu_count)
-            proc = run_scenario_on_gpu(scenario, gpu_id, args.quick)
+            proc = run_scenario_on_gpu(scenario, gpu_id, args.quick, script_dir)
             proc.wait()  # Wait for completion before next
     else:
         # Run all 3 in parallel
@@ -140,7 +153,7 @@ def main():
 
         processes = []
         for i, scenario in enumerate(scenarios):
-            proc = run_scenario_on_gpu(scenario, i, args.quick)
+            proc = run_scenario_on_gpu(scenario, i, args.quick, script_dir)
             processes.append((scenario, proc))
             time.sleep(2)  # Small delay between starts
 
@@ -152,7 +165,7 @@ def main():
 
     # Merge results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    merged_file = merge_results(scenarios, f"merged_activations_{timestamp}.pt")
+    merged_file = merge_results(scenarios, f"merged_activations_{timestamp}.pt", script_dir)
 
     print("\n" + "=" * 60)
     print("ALL SCENARIOS COMPLETE")

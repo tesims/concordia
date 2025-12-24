@@ -596,15 +596,24 @@ def main():
                         help="Output directory")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed")
-    
+    parser.add_argument("--scenario", type=str, default=None,
+                        choices=["ultimatum_bluff", "hidden_value", "promise_break"],
+                        help="Run single scenario (for parallel execution)")
+
     args = parser.parse_args()
-    
+
     # Build config
     tier_config = TIER_CONFIGS[args.tier]
-    
+
+    # Allow single scenario override for parallel execution
+    if args.scenario:
+        scenarios = [args.scenario]
+    else:
+        scenarios = tier_config["scenarios"]
+
     config = ExperimentConfig(
         model_name=args.model,
-        scenarios=tier_config["scenarios"],
+        scenarios=scenarios,
         trials_per_condition=5 if args.quick else tier_config["trials_per_condition"],
         output_dir=args.output_dir,
         seed=args.seed,
