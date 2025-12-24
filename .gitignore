@@ -26,3 +26,6 @@ __pycache__/
 
 # Type checking
 .pytype
+experiment_outputs/
+*.pt
+experiment_outputs/
