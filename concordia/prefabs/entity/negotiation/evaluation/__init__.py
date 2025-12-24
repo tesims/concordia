@@ -15,12 +15,12 @@ Key modules:
 
 Usage:
     from concordia.prefabs.entity.negotiation.evaluation import (
-        RealAgentRunner,
+        LLMAgentRunner,
         create_openai_model,
     )
 
     model = create_openai_model('gpt-4')
-    runner = RealAgentRunner(model=model)
+    runner = LLMAgentRunner(model=model)
     results = runner.run_ablation_study('fishery', num_trials=10)
 """
 
@@ -77,15 +77,42 @@ from .statistical_analysis import (
     ResultsAnalyzer,
 )
 
-# Real agent evaluation (uses actual negotiation framework agents)
-from .real_agent_evaluation import (
-    RealAgentRunner,
-    RealAgentConfig,
+# LLM Evaluation (uses actual negotiation framework agents with real LLMs)
+from .llm_evaluation import (
+    LLMAgentRunner,
+    LLMAgentConfig,
     create_mock_model,
     create_openai_model,
     create_google_model,
+    create_gemma_model,
     create_ollama_model,
+    create_remote_ollama_model,
     create_together_model,
+)
+
+# Interpretability + Evaluation (single run captures both)
+from .interpretability_evaluation import (
+    InterpretabilityRunner,
+    TransformerLensWrapper,
+    ActivationSample,
+    EvaluationResult,
+    run_quick_study,
+)
+
+# Mechanistic Interpretability Tools (TransformerLens, SAE, Probing)
+from .mech_interp_tools import (
+    verify_installation,
+    verify_gemma_loading,
+    verify_sae_loading,
+    load_gemma_with_cache,
+    extract_activations,
+    load_gemma_scope_sae,
+    extract_sae_features,
+    train_linear_probe,
+    extract_direction,
+    ActivationCache,
+    SAEFeatures,
+    ProbeResult,
 )
 
 __all__ = [
@@ -127,12 +154,33 @@ __all__ = [
     'one_way_anova',
     'pairwise_comparisons',
     'ResultsAnalyzer',
-    # Real agent evaluation
-    'RealAgentRunner',
-    'RealAgentConfig',
+    # LLM Evaluation
+    'LLMAgentRunner',
+    'LLMAgentConfig',
     'create_mock_model',
     'create_openai_model',
     'create_google_model',
+    'create_gemma_model',
     'create_ollama_model',
+    'create_gcp_ollama_model',
     'create_together_model',
+    # Interpretability + Evaluation
+    'InterpretabilityRunner',
+    'TransformerLensWrapper',
+    'ActivationSample',
+    'EvaluationResult',
+    'run_quick_study',
+    # Mechanistic Interpretability Tools
+    'verify_installation',
+    'verify_gemma_loading',
+    'verify_sae_loading',
+    'load_gemma_with_cache',
+    'extract_activations',
+    'load_gemma_scope_sae',
+    'extract_sae_features',
+    'train_linear_probe',
+    'extract_direction',
+    'ActivationCache',
+    'SAEFeatures',
+    'ProbeResult',
 ]

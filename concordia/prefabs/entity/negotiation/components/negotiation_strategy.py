@@ -2,7 +2,7 @@
 
 import abc
 import dataclasses
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from concordia.typing import entity_component
 
@@ -277,12 +277,12 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
         """Provide strategic context before action."""
         return self.get_strategic_context()
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Update after action."""
         # Could parse action to update our position
-        pass
+        return ''
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Process strategic observations."""
         # Enhanced parsing to detect opponent offers and extract values
         if 'offer' in observation.lower():
@@ -292,11 +292,12 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
                 # Adjust our strategy based on the offer
                 self._adjust_strategy_for_offer(parsed_value)
             self.update_state()
-
+        return ''
+    
     def _parse_offer_value(self, text: str) -> Optional[float]:
         """Parse monetary values from text."""
         import re
-
+        
         # Look for currency amounts like $150, 150.00, USD 150, etc.
         patterns = [
             r'\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # $150, $1,200.50
@@ -304,7 +305,7 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
             r'(?:USD|dollars?)\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # USD 150
             r'\b(\d+(?:,\d{3})*(?:\.\d{2})?)\b',  # Plain numbers as fallback
         ]
-
+        
         for pattern in patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             if matches:
@@ -314,17 +315,17 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
                     return float(value_str)
                 except ValueError:
                     continue
-
+        
         return None
-
+    
     def _adjust_strategy_for_offer(self, offer_value: float) -> None:
         """Adjust strategy based on opponent's offer."""
         if not hasattr(self, '_initial_target'):
             self._initial_target = self._target_value
 
         # If offer is better than our reservation, become more cooperative
-        if ((self._negotiation_style == 'competitive' and offer_value > self._reservation_value) or
-            (self._negotiation_style == 'cooperative' and offer_value >= self._reservation_value * 0.9)):
+        if ((self._style == 'competitive' and offer_value > self._reservation_value) or
+            (self._style == 'cooperative' and offer_value >= self._reservation_value * 0.9)):
             # Adjust target to be more reasonable
             gap = abs(self._target_value - offer_value)
             self._target_value = offer_value + (gap * 0.3)
@@ -334,9 +335,9 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
             # Don't adjust target downward too much
             self._target_value = max(self._target_value, self._reservation_value * 1.1)
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ''
 
     def update(self) -> None:
         """Update internal state."""
@@ -347,13 +348,22 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
         """Component name."""
         return 'BasicNegotiationStrategy'
 
-    def get_state(self) -> str:
+    def get_state(self) -> Mapping[str, Any]:
         """Get the component state for saving/restoring."""
-        return f'{self._state.current_position}|{self._state.rounds_elapsed}'
+        return {
+            'current_position': self._state.current_position,
+            'rounds_elapsed': self._state.rounds_elapsed,
+            'opponent_position': self._state.opponent_position,
+            'style': self._style,
+            'reservation_value': self._reservation_value,
+            'target_value': self._target_value,
+        }
 
-    def set_state(self, state: str) -> None:
-        """Set the component state from a saved string."""
-        if '|' in state:
-            position, rounds = state.split('|', 1)
-            self._state.current_position = float(position)
-            self._state.rounds_elapsed = int(rounds)
+    def set_state(self, state: Mapping[str, Any]) -> None:
+        """Set the component state from a saved mapping."""
+        if 'current_position' in state:
+            self._state.current_position = state['current_position']
+        if 'rounds_elapsed' in state:
+            self._state.rounds_elapsed = state['rounds_elapsed']
+        if 'opponent_position' in state:
+            self._state.opponent_position = state['opponent_position']

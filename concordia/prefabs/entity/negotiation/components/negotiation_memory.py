@@ -2,7 +2,7 @@
 
 import dataclasses
 import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Mapping, Optional
 
 from concordia.associative_memory import basic_associative_memory
 from concordia.typing import entity_component
@@ -191,7 +191,7 @@ class NegotiationMemory(entity_component.ContextComponent):
 
         return context
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Update memory after action."""
         # Parse if action was an offer
         if 'offer' in action_attempt.lower():
@@ -203,8 +203,9 @@ class NegotiationMemory(entity_component.ContextComponent):
                 round_number=len(self._offer_history) + 1,
             )
             self.remember_offer(offer)
+        return ''
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Process negotiation observations."""
         # Parse if observation contains an offer
         if 'offer' in observation.lower():
@@ -228,10 +229,11 @@ class NegotiationMemory(entity_component.ContextComponent):
                 summary=observation,
             )
             self.remember_outcome(outcome)
+        return ''
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ''
 
     def update(self) -> None:
         """Update internal state."""
@@ -243,12 +245,15 @@ class NegotiationMemory(entity_component.ContextComponent):
         """Component name."""
         return 'NegotiationMemory'
 
-    def get_state(self) -> str:
+    def get_state(self) -> Mapping[str, Any]:
         """Get the component state for saving/restoring."""
-        # For now, return empty state. Could serialize offer history if needed.
-        return ''
+        return {
+            'offer_count': len(self._offer_history),
+            'outcome_count': len(self._outcomes),
+            'has_current_best_offer': self._current_best_offer is not None,
+        }
 
-    def set_state(self, state: str) -> None:
-        """Set the component state from a saved string."""
-        # For now, do nothing. Could deserialize offer history if needed.
+    def set_state(self, state: Mapping[str, Any]) -> None:
+        """Set the component state from a saved mapping."""
+        # State restoration is limited for memory - primarily for tracking
         pass

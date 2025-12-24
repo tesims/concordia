@@ -135,7 +135,7 @@ OPPORTUNITIES: [List market opportunities]"""
             elif line.startswith('CONFIDENCE:'):
                 try:
                     parsed['confidence'] = float(line[11:].strip())
-                except:
+                except ValueError:
                     parsed['confidence'] = 0.7
             elif line.startswith('KEY_FACTORS:'):
                 current_section = 'key_factors'
@@ -225,7 +225,7 @@ OPPORTUNITIES: [List relationship opportunities]"""
             elif line.startswith('CONFIDENCE:'):
                 try:
                     parsed['confidence'] = float(line[11:].strip())
-                except:
+                except ValueError:
                     parsed['confidence'] = 0.7
             elif line.startswith('KEY_FACTORS:'):
                 current_section = 'key_factors'
@@ -315,7 +315,7 @@ OPPORTUNITIES: [List strategic opportunities]"""
             elif line.startswith('CONFIDENCE:'):
                 try:
                     parsed['confidence'] = float(line[11:].strip())
-                except:
+                except ValueError:
                     parsed['confidence'] = 0.7
             elif line.startswith('KEY_FACTORS:'):
                 current_section = 'key_factors'
@@ -405,7 +405,7 @@ OPPORTUNITIES: [List partnership opportunities]"""
             elif line.startswith('CONFIDENCE:'):
                 try:
                     parsed['confidence'] = float(line[11:].strip())
-                except:
+                except ValueError:
                     parsed['confidence'] = 0.7
             elif line.startswith('KEY_FACTORS:'):
                 current_section = 'key_factors'

@@ -129,5 +129,29 @@ setuptools.setup(
             # Used in concordia.contrib.language_models.vllm
             'vllm',
         ],
+        # For negotiation evaluation framework
+        'evaluation': [
+            'scikit-learn',
+            'scipy',
+            'statsmodels',
+        ],
+        # For interpretability/mechanistic research
+        'interpretability': [
+            'torch',
+            'transformer-lens',
+            'sae-lens',
+            'accelerate',
+            'scikit-learn',  # Also needed for probing
+        ],
+        # All extras combined
+        'all': [
+            'scikit-learn',
+            'scipy',
+            'statsmodels',
+            'torch',
+            'transformer-lens',
+            'sae-lens',
+            'accelerate',
+        ],
     },
 )

@@ -1,16 +1,16 @@
-# Real Agent Evaluation Harness
-# Uses actual negotiation framework agents with their cognitive modules
+# LLM Evaluation Harness
+# Evaluates negotiation agents with real LLM backends
 
 """
-Evaluation harness that properly integrates with the negotiation framework.
+Evaluation harness for testing negotiation agents with real language models.
 
-Unlike the basic harness that simulates modules via prompts, this harness:
-- Creates actual agents using advanced_negotiator.build_agent()
-- Uses real cognitive module components (theory_of_mind, cultural_adaptation, etc.)
+This harness:
+- Creates agents using advanced_negotiator.build_agent()
+- Uses cognitive module components (theory_of_mind, cultural_adaptation, etc.)
 - Maintains persistent state across rounds via memory banks
-- Makes authentic LLM calls through the agent architecture
+- Makes LLM calls through the agent architecture
 
-This provides honest evaluation of module contributions.
+Supports multiple LLM backends: OpenAI, Google, Ollama, Together AI, Remote (RunPod/Lambda).
 """
 
 import os
@@ -74,11 +74,31 @@ def create_google_model(model_name: str = 'gemini-pro', api_key: str = None):
     """Create a Google AI Studio (Gemini) model for evaluation.
 
     Args:
-        model_name: Model to use (e.g., 'gemini-pro')
-        api_key: Google AI API key
+        model_name: Model to use (e.g., 'gemini-pro', 'gemini-1.5-pro')
+        api_key: Google AI API key (or set GOOGLE_API_KEY env var)
     """
     from concordia.language_model import google_aistudio_model
-    return google_aistudio_model.GoogleAIStudioModel(
+    return google_aistudio_model.GoogleAIStudioLanguageModel(
+        model_name=model_name, api_key=api_key
+    )
+
+
+def create_gemma_model(model_name: str = 'gemma-3-27b-it', api_key: str = None):
+    """Create a Gemma model via Google AI Studio API.
+
+    Gemma 3 models are available through the same API as Gemini.
+    Uses Google Cloud $300 free credits.
+
+    Args:
+        model_name: Gemma model to use. Options:
+            - 'gemma-3-27b-it' (27B, best quality)
+            - 'gemma-3-12b-it' (12B, balanced)
+            - 'gemma-3-4b-it' (4B, faster)
+            - 'gemma-3-1b-it' (1B, fastest)
+        api_key: Google AI API key (or set GOOGLE_API_KEY env var)
+    """
+    from concordia.language_model import google_aistudio_model
+    return google_aistudio_model.GoogleAIStudioLanguageModel(
         model_name=model_name, api_key=api_key
     )
 
@@ -93,6 +113,101 @@ def create_ollama_model(model_name: str = 'llama2'):
     return ollama_model.OllamaModel(model_name=model_name)
 
 
+def create_remote_ollama_model(
+    model_name: str = 'gemma2:9b',
+    host_ip: str = None,
+    port: int = 11434
+):
+    """Create an Ollama model running on a remote GPU server (RunPod, Lambda, etc.).
+
+    This connects to an Ollama server running on your cloud GPU instance.
+    No per-token API costs - just pay for instance time.
+
+    Setup on remote instance (RunPod/Lambda/etc.):
+        curl -fsSL https://ollama.ai/install.sh | sh
+        ollama pull gemma2:9b
+        OLLAMA_HOST=0.0.0.0:11434 ollama serve
+
+    Args:
+        model_name: Model to use (e.g., 'gemma2:9b', 'gemma2:2b', 'llama3:8b')
+        host_ip: External IP of your instance (or set OLLAMA_HOST_IP env var)
+        port: Ollama port (default 11434)
+
+    Example:
+        model = create_remote_ollama_model(
+            model_name='gemma2:9b',
+            host_ip='34.123.45.67'
+        )
+    """
+    import os
+
+    if host_ip is None:
+        host_ip = os.environ.get('OLLAMA_HOST_IP')
+        if host_ip is None:
+            raise ValueError(
+                "Must provide host_ip or set OLLAMA_HOST_IP env var. "
+                "This should be the external IP of your instance running Ollama."
+            )
+
+    host_url = f"http://{host_ip}:{port}"
+
+    # Create a custom Ollama model that connects to remote host
+    from concordia.language_model import language_model as lm_base
+    from concordia.utils import sampling
+    import ollama
+
+    class RemoteOllamaModel(lm_base.LanguageModel):
+        """Ollama model connecting to a remote host (e.g., RunPod, Lambda Labs)."""
+
+        def __init__(self, model_name: str, host: str):
+            self._model_name = model_name
+            self._client = ollama.Client(host=host)
+            self._system_message = (
+                'Continue the user\'s sentences. Never repeat their starts.'
+            )
+
+        def sample_text(
+            self,
+            prompt: str,
+            *,
+            max_tokens: int = 5000,
+            terminators = (),
+            temperature: float = 0.5,
+            timeout: float = 60,
+            seed: int | None = None,
+        ) -> str:
+            response = self._client.generate(
+                model=self._model_name,
+                prompt=prompt,
+                system=self._system_message,
+                options={
+                    'temperature': temperature,
+                    'num_predict': max_tokens,
+                    'seed': seed if seed is not None else -1,
+                },
+            )
+            result = response['response']
+            for terminator in terminators:
+                result = result.split(terminator)[0]
+            return result
+
+        def sample_choice(
+            self,
+            prompt: str,
+            responses,
+            *,
+            seed: int | None = None,
+        ):
+            # Simple implementation - generate and match
+            sample = self.sample_text(prompt, max_tokens=256, seed=seed)
+            idx, response, score = sampling.find_best_matching_response(
+                sample, responses
+            )
+            return idx, response, {'sample': sample, 'score': score}
+
+    return RemoteOllamaModel(model_name=model_name, host=host_url)
+
+
 def create_together_model(model_name: str = 'meta-llama/Llama-2-70b-chat-hf', api_key: str = None):
     """Create a Together AI model for evaluation.
 
@@ -105,8 +220,8 @@ def create_together_model(model_name: str = 'meta-llama/Llama-2-70b-chat-hf', ap
 
 
 @dataclass
-class RealAgentConfig:
-    """Configuration for a real agent experiment."""
+class LLMAgentConfig:
+    """Configuration for an LLM-based agent experiment."""
     name: str
     scenario_type: str  # 'fishery', 'treaty', 'gameshow'
     scenario_params: Dict[str, Any] = field(default_factory=dict)
@@ -178,7 +293,7 @@ def create_mock_model():
     return model
 
 
-class RealAgentRunner:
+class LLMAgentRunner:
     """Experiment runner using actual negotiation framework agents."""
 
     def __init__(
@@ -283,7 +398,7 @@ class RealAgentRunner:
 
     def run_experiment(
         self,
-        config: RealAgentConfig,
+        config: LLMAgentConfig,
         verbose: bool = True
     ) -> ExperimentMetrics:
         """
@@ -335,7 +450,7 @@ class RealAgentRunner:
 
     def _run_single_trial(
         self,
-        config: RealAgentConfig,
+        config: LLMAgentConfig,
         trial_id: int
     ) -> NegotiationMetrics:
         """Run a single trial with real agents."""
@@ -459,7 +574,7 @@ class RealAgentRunner:
             print("ABLATION STUDY WITH REAL AGENTS")
             print("="*70)
 
-        config_full = RealAgentConfig(
+        config_full = LLMAgentConfig(
             name=f"{scenario_type}_full",
             scenario_type=scenario_type,
             modules=ALL_MODULES.copy(),
@@ -470,7 +585,7 @@ class RealAgentRunner:
         # Remove each module one at a time
         for module in ALL_MODULES:
             ablated_modules = [m for m in ALL_MODULES if m != module]
-            config = RealAgentConfig(
+            config = LLMAgentConfig(
                 name=f"{scenario_type}_no_{module}",
                 scenario_type=scenario_type,
                 modules=ablated_modules,
@@ -479,7 +594,7 @@ class RealAgentRunner:
             results[f'no_{module}'] = self.run_experiment(config, verbose)
 
         # Baseline (no modules)
-        config_baseline = RealAgentConfig(
+        config_baseline = LLMAgentConfig(
             name=f"{scenario_type}_baseline",
             scenario_type=scenario_type,
             modules=[],
@@ -571,7 +686,7 @@ def main():
     print("================================")
     print("This uses actual negotiation framework agents, not prompt simulations.\n")
 
-    runner = RealAgentRunner()
+    runner = LLMAgentRunner()
 
     # Run a quick ablation study
     print("Running ablation study on fishery scenario...")

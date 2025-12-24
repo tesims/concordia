@@ -2,7 +2,7 @@
 
 import dataclasses
 import enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from concordia.language_model import language_model
 from concordia.typing import entity_component
@@ -355,22 +355,24 @@ Return only the profile name (e.g., western_business).'''
 
         return context
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Track cultural adaptation in action."""
         self._adaptation_history.append((
             self._detected_culture or 'unknown',
             action_attempt
         ))
+        return ''
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Detect cultural cues from observations."""
         # Try to detect culture from substantial communications
         if len(observation) > 100 and 'said:' in observation:
             self.detect_cultural_style(observation)
+        return ''
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ''
 
     def update(self) -> None:
         """Update internal state."""
@@ -381,14 +383,18 @@ Return only the profile name (e.g., western_business).'''
         """Component name."""
         return 'CulturalAdaptation'
 
-    def get_state(self) -> str:
+    def get_state(self) -> Mapping[str, Any]:
         """Get component state."""
-        return f'{self._detected_culture}|{len(self._adaptation_history)}'
+        return {
+            'detected_culture': self._detected_culture,
+            'adaptation_history_len': len(self._adaptation_history),
+            'own_culture': self._own_culture,
+        }
 
-    def set_state(self, state: str) -> None:
+    def set_state(self, state: Mapping[str, Any]) -> None:
         """Set component state."""
-        if '|' in state:
-            culture, history_len = state.split('|', 1)
-            if culture != 'None' and culture in CULTURAL_PROFILES:
+        if 'detected_culture' in state:
+            culture = state['detected_culture']
+            if culture and culture in CULTURAL_PROFILES:
                 self._detected_culture = culture
                 self._counterpart_profile = CULTURAL_PROFILES[culture]

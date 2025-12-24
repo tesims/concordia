@@ -566,12 +566,12 @@ DETAILED ABLATION RESULTS
 import os
 os.environ['OPENAI_API_KEY'] = 'sk-your-key-here'
 
-from concordia.prefabs.entity.negotiation.evaluation import (
-    RealAgentRunner, create_openai_model
+from concordia.prefabs.entity.negotiation.evaluation.llm_evaluation import (
+    LLMAgentRunner, create_openai_model
 )
 
 model = create_openai_model(model_name='gpt-4')  # or 'gpt-3.5-turbo' for cheaper
-runner = RealAgentRunner(model=model)
+runner = LLMAgentRunner(model=model)
 
 results = runner.run_ablation_study(
     scenario_type='fishery',
@@ -589,12 +589,12 @@ runner.print_report(results, analysis)
 import os
 os.environ['GOOGLE_API_KEY'] = 'your-key-here'
 
-from concordia.prefabs.entity.negotiation.evaluation import (
-    RealAgentRunner, create_google_model
+from concordia.prefabs.entity.negotiation.evaluation.llm_evaluation import (
+    LLMAgentRunner, create_google_model
 )
 
 model = create_google_model(model_name='gemini-pro')
-runner = RealAgentRunner(model=model)
+runner = LLMAgentRunner(model=model)
 
 results = runner.run_ablation_study('fishery', num_trials=10, verbose=True)
 ```
@@ -619,12 +619,12 @@ ollama serve
 Then run evaluation:
 
 ```python
-from concordia.prefabs.entity.negotiation.evaluation import (
-    RealAgentRunner, create_ollama_model
+from concordia.prefabs.entity.negotiation.evaluation.llm_evaluation import (
+    LLMAgentRunner, create_ollama_model
 )
 
 model = create_ollama_model(model_name='llama2')
-runner = RealAgentRunner(model=model)
+runner = LLMAgentRunner(model=model)
 
 results = runner.run_ablation_study('fishery', num_trials=10, verbose=True)
 ```
@@ -635,12 +635,12 @@ results = runner.run_ablation_study('fishery', num_trials=10, verbose=True)
 import os
 os.environ['TOGETHER_API_KEY'] = 'your-key-here'
 
-from concordia.prefabs.entity.negotiation.evaluation import (
-    RealAgentRunner, create_together_model
+from concordia.prefabs.entity.negotiation.evaluation.llm_evaluation import (
+    LLMAgentRunner, create_together_model
 )
 
 model = create_together_model(model_name='meta-llama/Llama-2-70b-chat-hf')
-runner = RealAgentRunner(model=model)
+runner = LLMAgentRunner(model=model)
 
 results = runner.run_ablation_study('fishery', num_trials=10, verbose=True)
 ```
@@ -663,8 +663,8 @@ Save as `run_real_eval.py`:
 #!/usr/bin/env python3
 """Run real evaluation with actual LLM."""
 import os
-from concordia.prefabs.entity.negotiation.evaluation import (
-    RealAgentRunner, create_openai_model
+from concordia.prefabs.entity.negotiation.evaluation.llm_evaluation import (
+    LLMAgentRunner, create_openai_model
 )
 
 # Set your API key (or use environment variable)
@@ -672,7 +672,7 @@ os.environ['OPENAI_API_KEY'] = 'sk-your-key-here'
 
 # Create model and runner
 model = create_openai_model('gpt-4')
-runner = RealAgentRunner(model=model)
+runner = LLMAgentRunner(model=model)
 
 # Run ablation study
 print("Running real evaluation...")
@@ -714,25 +714,31 @@ python run_real_eval.py
 
 ```
 concordia/prefabs/entity/negotiation/evaluation/
-├── __init__.py                 # Package exports
-├── README.md                   # This documentation
-├── run_experiments.py          # CLI entry point (basic harness)
-├── evaluation_harness.py       # Basic experiment runner
-├── real_agent_evaluation.py    # Real agent evaluation (recommended)
-├── metrics.py                  # Metrics collection and aggregation
-├── contest_scenarios.py        # Fishery, Treaty, Gameshow scenarios
-├── baseline_agents.py          # Baseline agents for comparison
-├── statistical_analysis.py     # Statistical tests and effect sizes
-└── results/                    # Output directory for results
+├── __init__.py                      # Package exports
+├── README.md                        # This documentation
+├── USAGE_GUIDE.md                   # Detailed interpretability guide
+├── INTERPRETABILITY_README.md       # Interpretability module docs
+├── run_experiments.py               # CLI entry point (basic harness)
+├── evaluation_harness.py            # Basic experiment runner
+├── llm_evaluation.py                # LLM-based evaluation (recommended)
+├── interpretability_evaluation.py   # Eval + activation capture + GM labels
+├── mech_interp_tools.py             # SAE Lens, probing tools
+├── metrics.py                       # Metrics collection and aggregation
+├── contest_scenarios.py             # Fishery, Treaty, Gameshow scenarios
+├── baseline_agents.py               # Baseline agents for comparison
+├── statistical_analysis.py          # Statistical tests and effect sizes
+├── test_full_integration.py         # Comprehensive integration tests
+└── results/                         # Output directory for results
     ├── results_*.json
     └── report_*.txt
 ```
 
-### Two Evaluation Approaches
+### Three Evaluation Approaches
 
 | File | What It Does | When to Use |
 |------|--------------|-------------|
-| `real_agent_evaluation.py` | Uses actual negotiation framework agents with cognitive modules | **For real evaluation** |
+| `interpretability_evaluation.py` | Captures activations + agent labels + GM ground truth | **For interpretability research** |
+| `llm_evaluation.py` | Uses actual negotiation framework agents with cognitive modules | **For behavioral evaluation** |
 | `evaluation_harness.py` | Simulates modules via prompt text | Quick prototyping only |
 
 ---

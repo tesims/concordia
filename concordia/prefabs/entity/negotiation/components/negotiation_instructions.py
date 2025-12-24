@@ -1,6 +1,7 @@
+
 """Negotiation-specific instructions component."""
 
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 from concordia.typing import entity_component
 
@@ -158,7 +159,7 @@ class NegotiationInstructions(entity_component.ContextComponent):
 
         return instructions
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Update state after action."""
         # Track if we made an offer
         if 'offer' in action_attempt.lower():
@@ -167,16 +168,18 @@ class NegotiationInstructions(entity_component.ContextComponent):
 
         if self._verbose:
             print(f'[{self._agent_name}] Negotiation round {self._rounds_completed}')
+        return ''
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Process incoming observations."""
         # Track if we received an offer
         if 'offer' in observation.lower():
             self._last_offer_received = observation
+        return ''
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ''
 
     def update(self) -> None:
         """Update internal state."""
@@ -187,13 +190,17 @@ class NegotiationInstructions(entity_component.ContextComponent):
         """Component name."""
         return 'NegotiationInstructions'
 
-    def get_state(self) -> str:
+    def get_state(self) -> Mapping[str, Any]:
         """Get the component state for saving/restoring."""
-        return f'{self._negotiation_phase}|{self._rounds_completed}'
+        return {
+            'negotiation_phase': self._negotiation_phase,
+            'rounds_completed': self._rounds_completed,
+            'style': self._style,
+        }
 
-    def set_state(self, state: str) -> None:
-        """Set the component state from a saved string."""
-        if '|' in state:
-            phase, rounds = state.split('|', 1)
-            self._negotiation_phase = phase
-            self._rounds_completed = int(rounds)
+    def set_state(self, state: Mapping[str, Any]) -> None:
+        """Set the component state from a saved mapping."""
+        if 'negotiation_phase' in state:
+            self._negotiation_phase = state['negotiation_phase']
+        if 'rounds_completed' in state:
+            self._rounds_completed = state['rounds_completed']
