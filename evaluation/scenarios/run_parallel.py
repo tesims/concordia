@@ -25,7 +25,8 @@ def get_gpu_count():
     return 0
 
 
-def run_scenario_on_gpu(scenario: str, gpu_id: int, quick: bool = False, script_dir: str = None):
+def run_scenario_on_gpu(scenario: str, gpu_id: int, quick: bool = False, mode: str = "emergent",
+                        trials: int = None, model: str = None, script_dir: str = None):
     """Run a scenario on a specific GPU."""
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
@@ -43,12 +44,20 @@ def run_scenario_on_gpu(scenario: str, gpu_id: int, quick: bool = False, script_
         "--tier", "2",
         "--scenario", scenario,
         "--output-dir", str(output_dir),
+        "--mode", mode,
     ]
 
     if quick:
         cmd.append("--quick")
 
-    print(f"[GPU {gpu_id}] Starting {scenario}...")
+    if trials:
+        cmd.extend(["--trials", str(trials)])
+
+    if model:
+        cmd.extend(["--model", model])
+
+    model_short = model.split("/")[-1] if model else "default"
+    print(f"[GPU {gpu_id}] Starting {scenario} (mode={mode}, trials={trials or 50}, model={model_short})...")
     return subprocess.Popen(cmd, env=env, cwd=str(script_dir))
 
 
@@ -122,15 +131,39 @@ def merge_results(scenarios: list, output_file: str = "merged_activations.pt", s
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--quick", action="store_true", help="Quick test mode")
+    parser.add_argument("--quick", action="store_true", help="Quick test mode (2 scenarios)")
+    parser.add_argument("--mode", type=str, default="emergent",
+                        choices=["instructed", "emergent"],
+                        help="Experiment mode: 'instructed' or 'emergent' (default: emergent)")
+    parser.add_argument("--trials", type=int, default=50,
+                        help="Trials per condition (default: 50). Recommended: 50-100")
+    parser.add_argument("--model", type=str, default="google/gemma-2-9b-it",
+                        choices=["google/gemma-2-9b-it", "google/gemma-2-27b-it", "google/gemma-2-2b-it"],
+                        help="Model to use (default: gemma-2-9b-it)")
     args = parser.parse_args()
 
-    scenarios = ["ultimatum_bluff", "hidden_value", "promise_break"]
+    # All 6 scenarios
+    if args.quick:
+        scenarios = ["ultimatum_bluff", "hidden_value"]
+    else:
+        scenarios = [
+            "ultimatum_bluff", "capability_bluff", "hidden_value",
+            "info_withholding", "promise_break", "alliance_betrayal"
+        ]
+
     script_dir = Path(__file__).parent.resolve()
+
+    mode_desc = "EMERGENT (incentive-based)" if args.mode == "emergent" else "INSTRUCTED (explicit)"
+    model_short = args.model.split("/")[-1]
 
     print("=" * 60)
     print("PARALLEL DECEPTION PROBING EXPERIMENT")
     print("=" * 60)
+    print(f"Mode: {mode_desc}")
+    print(f"Model: {model_short}")
+    print(f"Scenarios: {len(scenarios)}")
+    print(f"Trials per condition: {args.trials}")
+    print(f"Total trials: {args.trials * 2 * len(scenarios)}")
     print(f"Started: {datetime.now().isoformat()}")
     print(f"Script directory: {script_dir}")
 
@@ -138,22 +171,33 @@ def main():
     gpu_count = get_gpu_count()
     print(f"\nDetected {gpu_count} GPU(s)")
 
-    if gpu_count < 3:
-        print(f"\nWARNING: Only {gpu_count} GPU(s) available.")
-        print("Will run scenarios sequentially on available GPUs.")
+    if gpu_count < len(scenarios):
+        print(f"\nWARNING: Only {gpu_count} GPU(s) available for {len(scenarios)} scenarios.")
+        print("Will run scenarios with GPU cycling.")
 
-        # Run sequentially if not enough GPUs
+        # Run with GPU cycling
+        processes = []
         for i, scenario in enumerate(scenarios):
             gpu_id = i % max(1, gpu_count)
-            proc = run_scenario_on_gpu(scenario, gpu_id, args.quick, script_dir)
-            proc.wait()  # Wait for completion before next
+            # Wait for previous job on same GPU to finish
+            for prev_scenario, prev_proc in processes:
+                if processes.index((prev_scenario, prev_proc)) % max(1, gpu_count) == gpu_id:
+                    prev_proc.wait()
+            proc = run_scenario_on_gpu(scenario, gpu_id, args.quick, args.mode, args.trials, args.model, script_dir)
+            processes.append((scenario, proc))
+            time.sleep(1)
+
+        # Wait for remaining
+        for scenario, proc in processes:
+            proc.wait()
+            print(f"  {scenario} completed with return code {proc.returncode}")
     else:
-        # Run all 3 in parallel
-        print("\nRunning 3 scenarios in parallel (1 GPU each)...")
+        # Run all scenarios in parallel
+        print(f"\nRunning {len(scenarios)} scenarios in parallel...")
 
         processes = []
         for i, scenario in enumerate(scenarios):
-            proc = run_scenario_on_gpu(scenario, i, args.quick, script_dir)
+            proc = run_scenario_on_gpu(scenario, i, args.quick, args.mode, args.trials, args.model, script_dir)
             processes.append((scenario, proc))
             time.sleep(2)  # Small delay between starts
 

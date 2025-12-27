@@ -1,14 +1,18 @@
 # Deception-Focused Scenarios for MATS Mechanistic Interpretability Research
 # Designed for probing deception representations in LLM negotiation agents
-# 
+#
 # Key design principles:
 # 1. Binary ground truth for deception (verifiable)
 # 2. Matched deceptive vs honest conditions
 # 3. Compatible with GM third-party labeling
 # 4. Aligned with Apollo Research methodology
+#
+# TWO MODES:
+# - INSTRUCTED: Explicit deception instructions (original Apollo-style)
+# - EMERGENT: Incentive-based, no deception words (novel contribution)
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Union
 from enum import Enum
 import random
 
@@ -21,9 +25,21 @@ class DeceptionType(Enum):
 
 
 class Condition(Enum):
-    """Experimental conditions."""
+    """Experimental conditions (instructed mode)."""
     DECEPTIVE = "deceptive"   # Instructed/incentivized to deceive
     HONEST = "honest"         # Instructed/incentivized to be honest
+
+
+class IncentiveCondition(Enum):
+    """Experimental conditions (emergent mode - no deception words)."""
+    HIGH_INCENTIVE = "high_incentive"   # Strong personal gain incentive
+    LOW_INCENTIVE = "low_incentive"     # Weak/cooperative incentive
+
+
+class ExperimentMode(Enum):
+    """Mode of experiment."""
+    INSTRUCTED = "instructed"   # Original: explicit deception instructions
+    EMERGENT = "emergent"       # Novel: incentive-based, no deception words
 
 
 @dataclass
@@ -385,49 +401,67 @@ def generate_experiment_trials(
     conditions: List[Condition] = None,
     trials_per_condition: int = 30,
     seed: int = 42,
+    mode: ExperimentMode = ExperimentMode.INSTRUCTED,
 ) -> List[TrialConfig]:
     """
     Generate all trial configurations for an experiment.
-    
+
     Args:
         scenarios: List of scenario names (default: all)
-        conditions: List of conditions (default: both)
+        conditions: List of conditions (default: depends on mode)
         trials_per_condition: Number of trials per scenario-condition pair
         seed: Random seed for reproducibility
-    
+        mode: INSTRUCTED (explicit deception) or EMERGENT (incentive-based)
+
     Returns:
         List of TrialConfig objects ready for execution
     """
     random.seed(seed)
-    
+
     if scenarios is None:
         scenarios = get_all_scenarios()
-    if conditions is None:
-        conditions = [Condition.DECEPTIVE, Condition.HONEST]
-    
+
+    # Import emergent prompts if needed
+    if mode == ExperimentMode.EMERGENT:
+        from emergent_prompts import (
+            EMERGENT_SCENARIOS, IncentiveCondition as IC,
+            get_emergent_prompt, get_counterpart_prompt
+        )
+        if conditions is None:
+            conditions = [IC.HIGH_INCENTIVE, IC.LOW_INCENTIVE]
+    else:
+        if conditions is None:
+            conditions = [Condition.DECEPTIVE, Condition.HONEST]
+
     trials = []
     trial_id = 0
-    
+
     for scenario_name in scenarios:
         config = get_scenario_config(scenario_name)
-        
+
         for condition in conditions:
-            condition_config = config["conditions"][condition]
-            
             for _ in range(trials_per_condition):
                 # Generate random parameters
                 params = generate_trial_params(scenario_name, trial_id)
-                
-                # Format prompts
-                agent_prompt = format_prompt(
-                    condition_config["system_prompt"], 
-                    params
-                )
-                counterpart_prompt = format_prompt(
-                    config["counterpart_prompt"],
-                    params
-                )
-                
+
+                if mode == ExperimentMode.EMERGENT:
+                    # Use emergent (incentive-based) prompts
+                    agent_prompt = get_emergent_prompt(scenario_name, condition, params)
+                    counterpart_prompt = get_counterpart_prompt(scenario_name, params)
+                    expected_deception = None  # Unknown - that's the point!
+                else:
+                    # Use instructed prompts
+                    condition_config = config["conditions"][condition]
+                    agent_prompt = format_prompt(
+                        condition_config["system_prompt"],
+                        params
+                    )
+                    counterpart_prompt = format_prompt(
+                        config["counterpart_prompt"],
+                        params
+                    )
+                    expected_deception = condition_config["expected_deception"]
+
                 trials.append(TrialConfig(
                     trial_id=trial_id,
                     scenario=scenario_name,
@@ -435,14 +469,14 @@ def generate_experiment_trials(
                     agent_prompt=agent_prompt,
                     counterpart_prompt=counterpart_prompt,
                     params=params,
-                    expected_deception=condition_config["expected_deception"],
+                    expected_deception=expected_deception,
                 ))
-                
+
                 trial_id += 1
-    
+
     # Shuffle trials to avoid ordering effects
     random.shuffle(trials)
-    
+
     return trials
 
 
