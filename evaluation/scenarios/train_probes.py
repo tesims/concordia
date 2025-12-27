@@ -16,7 +16,6 @@ import numpy as np
 from sklearn.linear_model import Ridge, LogisticRegression
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.metrics import r2_score, accuracy_score, roc_auc_score
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 
@@ -38,42 +37,30 @@ class ProbeResult:
     
     def to_dict(self) -> Dict:
         return {
-            "layer": int(self.layer),
+            "layer": self.layer,
             "label_type": self.label_type,
-            "r2_score": float(self.r2_score),
-            "accuracy": float(self.accuracy),
-            "auc": float(self.auc),
-            "train_r2": float(self.train_r2),
-            "test_r2": float(self.test_r2),
-            "cross_val_mean": float(np.mean(self.cross_val_scores)) if self.cross_val_scores else 0.0,
-            "cross_val_std": float(np.std(self.cross_val_scores)) if self.cross_val_scores else 0.0,
+            "r2_score": self.r2_score,
+            "accuracy": self.accuracy,
+            "auc": self.auc,
+            "train_r2": self.train_r2,
+            "test_r2": self.test_r2,
+            "cross_val_mean": np.mean(self.cross_val_scores),
+            "cross_val_std": np.std(self.cross_val_scores),
         }
 
 
 def train_ridge_probe(
     X: np.ndarray,
     y: np.ndarray,
-    alpha: float = 10.0,  # Increased from 1.0 to reduce overfitting
-    use_pca: bool = True,  # Reduce dimensions to fight overfitting
-    n_components: int = 50,  # Target dimensions (or min of samples/features)
+    alpha: float = 1.0,
 ) -> Tuple[Ridge, ProbeResult]:
     """Train a Ridge regression probe."""
-
+    
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
-
-    # Optional PCA to reduce overfitting
-    if use_pca:
-        n_comp = min(n_components, X_train.shape[0] - 1, X_train.shape[1])
-        pca = PCA(n_components=n_comp)
-        X_train = pca.fit_transform(X_train)
-        X_test = pca.transform(X_test)
-        X_pca = pca.fit_transform(X)  # For cross-validation
-    else:
-        X_pca = X
-
+    
     # Train probe
     probe = Ridge(alpha=alpha)
     probe.fit(X_train, y_train)
@@ -84,9 +71,9 @@ def train_ridge_probe(
     
     train_r2 = r2_score(y_train, train_pred)
     test_r2 = r2_score(y_test, test_pred)
-
-    # Cross-validation (use PCA-transformed data if applicable)
-    cv_scores = cross_val_score(Ridge(alpha=alpha), X_pca, y, cv=5, scoring='r2')
+    
+    # Cross-validation
+    cv_scores = cross_val_score(probe, X, y, cv=5, scoring='r2')
     
     # Binary metrics (threshold at 0.5)
     binary_pred = (test_pred > 0.5).astype(int)
@@ -201,10 +188,10 @@ def sanity_check_random_labels(
         shuffle_r2s.append(result.r2_score)
     
     return {
-        "mean_shuffled_r2": float(np.mean(shuffle_r2s)),
-        "std_shuffled_r2": float(np.std(shuffle_r2s)),
-        "max_shuffled_r2": float(np.max(shuffle_r2s)),
-        "passed": bool(np.mean(shuffle_r2s) < 0.05),  # Should be near 0
+        "mean_shuffled_r2": np.mean(shuffle_r2s),
+        "std_shuffled_r2": np.std(shuffle_r2s),
+        "max_shuffled_r2": np.max(shuffle_r2s),
+        "passed": np.mean(shuffle_r2s) < 0.05,  # Should be near 0
     }
 
 
@@ -239,10 +226,10 @@ def sanity_check_train_test_gap(
     gap = result.train_r2 - result.test_r2
     
     return {
-        "train_r2": float(result.train_r2),
-        "test_r2": float(result.test_r2),
-        "gap": float(gap),
-        "passed": bool(gap < 0.2),  # Gap should be small
+        "train_r2": result.train_r2,
+        "test_r2": result.test_r2,
+        "gap": gap,
+        "passed": gap < 0.2,  # Gap should be small
     }
 
 
@@ -258,8 +245,8 @@ def sanity_check_label_variance(
         "std": float(np.std(y)),
         "min": float(np.min(y)),
         "max": float(np.max(y)),
-        "n_unique": int(len(np.unique(y))),
-        "passed": bool(np.std(y) > 0.1),  # Need some variance
+        "n_unique": len(np.unique(y)),
+        "passed": np.std(y) > 0.1,  # Need some variance
     }
 
 
@@ -376,7 +363,7 @@ def run_full_analysis(data_path: str) -> Dict[str, Any]:
             best_layer = layer
     
     results["layer_analysis"] = layer_results
-    results["best_probe"] = {"layer": int(best_layer), "r2": float(best_r2)}
+    results["best_probe"] = {"layer": best_layer, "r2": best_r2}
     
     print(f"\nBest layer: {best_layer} (R² = {best_r2:.3f})")
     
@@ -397,12 +384,12 @@ def run_full_analysis(data_path: str) -> Dict[str, Any]:
     gm_direction, gm_mm_result = train_mass_mean_probe(X_best, gm_labels)
     
     results["gm_vs_agent"] = {
-        "gm_ridge_r2": float(gm_result.r2_score),
-        "agent_ridge_r2": float(agent_result.r2_score),
-        "gm_mass_mean_r2": float(gm_mm_result.r2_score),
-        "gm_auc": float(gm_result.auc),
-        "agent_auc": float(agent_result.auc),
-        "gm_wins": bool(gm_result.r2_score > agent_result.r2_score),
+        "gm_ridge_r2": gm_result.r2_score,
+        "agent_ridge_r2": agent_result.r2_score,
+        "gm_mass_mean_r2": gm_mm_result.r2_score,
+        "gm_auc": gm_result.auc,
+        "agent_auc": agent_result.auc,
+        "gm_wins": gm_result.r2_score > agent_result.r2_score,
     }
     
     print(f"\nGM (Ground Truth):")
