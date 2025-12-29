@@ -319,10 +319,30 @@ def get_all_scenarios() -> List[str]:
     return list(EMERGENT_SCENARIOS.keys())
 
 
-def get_emergent_prompt(scenario: str, condition: IncentiveCondition, params: Dict[str, Any]) -> str:
-    """Get formatted emergent prompt for a scenario/condition."""
-    template = EMERGENT_SCENARIOS[scenario][condition]["system_prompt"]
-    return template.format(**params)
+def get_emergent_prompt(scenario: str, condition, params: Dict[str, Any]) -> str:
+    """Get formatted emergent prompt for a scenario/condition.
+
+    Handles cross-module enum comparison by comparing values instead of instances.
+    This fixes the KeyError that occurs when IncentiveCondition from deception_scenarios.py
+    is passed but EMERGENT_SCENARIOS uses IncentiveCondition from this module.
+    """
+    if scenario not in EMERGENT_SCENARIOS:
+        raise ValueError(f"Unknown scenario: {scenario}. Available: {list(EMERGENT_SCENARIOS.keys())}")
+
+    # Handle both enum and string conditions (fixes cross-module enum issue)
+    if hasattr(condition, 'value'):
+        condition_value = condition.value
+    else:
+        condition_value = condition
+
+    # Look up by matching the value, not the enum instance
+    scenario_config = EMERGENT_SCENARIOS[scenario]
+    for key in scenario_config:
+        if hasattr(key, 'value') and key.value == condition_value:
+            template = scenario_config[key]["system_prompt"]
+            return template.format(**params)
+
+    raise KeyError(f"Condition '{condition_value}' not found in scenario '{scenario}'")
 
 
 def get_counterpart_prompt(scenario: str, params: Dict[str, Any]) -> str:
