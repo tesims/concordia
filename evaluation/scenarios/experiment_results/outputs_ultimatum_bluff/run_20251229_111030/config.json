@@ -1,0 +1,30 @@
+{
+  "model_name": "google/gemma-2-9b-it",
+  "device": "cuda",
+  "dtype": "float16",
+  "layers_to_capture": [
+    0,
+    7,
+    14,
+    21,
+    28,
+    35,
+    41
+  ],
+  "scenarios": [
+    "ultimatum_bluff"
+  ],
+  "conditions": [
+    "high_incentive",
+    "low_incentive"
+  ],
+  "trials_per_condition": 50,
+  "seed": 42,
+  "experiment_mode": "emergent",
+  "output_dir": "/workspace/concordia/evaluation/scenarios/outputs_ultimatum_bluff",
+  "save_activations": true,
+  "save_conversations": true,
+  "max_turns": 6,
+  "max_tokens_per_turn": 150,
+  "temperature": 0.7
+}
