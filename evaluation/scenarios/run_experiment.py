@@ -161,19 +161,28 @@ def load_model(config: ExperimentConfig):
             "device": config.device,
         }
 
-        # For 27B, use more aggressive memory settings
+        # For 27B, use from_pretrained_no_processing to avoid weight conversion hang
         if "27b" in config.model_name.lower():
-            print("Loading 27B model - enabling memory optimizations...")
-            load_kwargs["n_devices"] = 1  # Single GPU
+            print("Loading 27B model - using no_processing mode to avoid weight conversion hang...")
+
             # Clear CUDA cache before loading
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.reset_peak_memory_stats()
 
-        model = HookedTransformer.from_pretrained(
-            config.model_name,
-            **load_kwargs
-        )
+            # Use from_pretrained_no_processing - skips weight conversion that causes hang
+            model = HookedTransformer.from_pretrained_no_processing(
+                config.model_name,
+                torch_dtype=dtype,
+                device=config.device,
+                n_devices=1,
+            )
+        else:
+            # Standard loading for smaller models
+            model = HookedTransformer.from_pretrained(
+                config.model_name,
+                **load_kwargs
+            )
 
         print(f"✓ Model loaded successfully")
         print(f"  Layers: {model.cfg.n_layers}")
