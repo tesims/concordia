@@ -42,15 +42,9 @@ from .contest_scenarios import create_scenario
 # These provide incentive-based scenarios where deception emerges rationally
 # No explicit deception instructions - the model "chooses" to deceive
 
-# Import emergent prompts - these are the 6 scenarios with ground truth rules
-import os
-import sys
-_eval_scenarios_path = os.path.join(os.path.dirname(__file__), '../../../../..', 'evaluation', 'scenarios')
-if _eval_scenarios_path not in sys.path:
-    sys.path.insert(0, _eval_scenarios_path)
-
+# Import emergent prompts from local module (now in same directory)
 try:
-    from emergent_prompts import (
+    from .emergent_prompts import (
         EMERGENT_SCENARIOS,
         IncentiveCondition,
         get_emergent_prompt,
@@ -63,6 +57,40 @@ try:
 except ImportError as e:
     EMERGENT_AVAILABLE = False
     print(f"Warning: emergent_prompts not available: {e}")
+
+# Import deception scenarios for instructed mode
+try:
+    from .deception_scenarios import (
+        SCENARIOS as INSTRUCTED_SCENARIOS,
+        Condition,
+        ExperimentMode,
+        generate_trial_params,
+        get_scenario_config,
+        get_all_scenarios as get_instructed_scenarios,
+    )
+    INSTRUCTED_AVAILABLE = True
+except ImportError as e:
+    INSTRUCTED_AVAILABLE = False
+    print(f"Warning: deception_scenarios not available: {e}")
+
+# Import probe training and sanity checks
+try:
+    from .train_probes import (
+        train_ridge_probe,
+        train_mass_mean_probe,
+        compute_generalization_auc,
+        compute_deception_rates,
+        run_full_analysis,
+    )
+    from .sanity_checks import (
+        run_all_sanity_checks,
+        run_causal_validation,
+        print_limitations,
+    )
+    PROBES_AVAILABLE = True
+except ImportError as e:
+    PROBES_AVAILABLE = False
+    print(f"Warning: probe training modules not available: {e}")
 
 
 @dataclass
