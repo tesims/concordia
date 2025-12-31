@@ -633,13 +633,13 @@ Action:"""
 
         return f"\n{guidance}"
 
-    def post_act(self, action: str, action_spec: entity_lib.ActionSpec) -> str:
+    def post_act(self, action_attempt: str) -> str:
         """Update evolution state after action."""
         if self._current_episode:
-            self._current_episode.actions_taken.append(action)
+            self._current_episode.actions_taken.append(action_attempt)
             self._current_episode.duration += 1
 
-        return action
+        return ""
 
     def observe(self, observation: str) -> None:
         """Process observations for strategy learning."""

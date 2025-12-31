@@ -262,6 +262,9 @@ Key Principles:
         action_spec: entity_lib.ActionSpec,
     ) -> str:
         """Add temporal strategy to action context."""
+        # Store action_spec for post_act
+        self._last_action_spec = action_spec
+
         # Get current context
         context = action_spec.call_to_action
 
@@ -277,17 +280,17 @@ Key Principles:
 
         return f"\n{strategy}"
 
-    def post_act(
-        self,
-        action: str,
-        action_spec: entity_lib.ActionSpec,
-    ) -> str:
+    def post_act(self, action_attempt: str) -> str:
         """Update temporal state after action."""
+        # Get stored action_spec context
+        context = getattr(self, '_last_action_spec', None)
+        context_str = context.call_to_action if context else "negotiation"
+
         # Analyze action for relationship impact
         prompt = f"""Analyze this negotiation action for relationship impact:
 
-Action: {action}
-Context: {action_spec.call_to_action}
+Action: {action_attempt}
+Context: {context_str}
 
 Evaluate:
 1. Does this build or harm the relationship? [build/neutral/harm]
@@ -312,7 +315,7 @@ Format: impact_type|promises|reputation|value"""
             elif 'negative' in reputation.lower():
                 self._global_reputation = max(0.0, self._global_reputation - 0.05)
 
-        return action
+        return ""
 
     def update(self) -> None:
         """Update temporal strategy state."""

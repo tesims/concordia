@@ -613,17 +613,17 @@ class SwarmIntelligence(entity_component.ActingComponent):
 
         return f"\n{guidance}"
 
-    def post_act(self, action: str, action_spec: entity_lib.ActionSpec) -> str:
+    def post_act(self, action_attempt: str) -> str:
         """Update swarm intelligence based on action taken."""
         if not self._decision_history:
-            return action
+            return ""
 
         # Simple performance assessment
         last_decision = self._decision_history[-1]
 
         # Assess if action followed collective recommendation
         action_alignment = 0.7  # Default moderate alignment
-        if last_decision.chosen_strategy.lower() in action.lower():
+        if last_decision.chosen_strategy.lower() in action_attempt.lower():
             action_alignment = 0.8
 
         # Update sub-agent performance
@@ -633,7 +633,7 @@ class SwarmIntelligence(entity_component.ActingComponent):
             else:
                 agent.update_performance(1.0 - action_alignment)
 
-        return action
+        return ""
 
     def get_state(self) -> Dict[str, Any]:
         """Get component state."""
