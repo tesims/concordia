@@ -159,7 +159,7 @@ class NegotiationInstructions(entity_component.ContextComponent):
 
         return instructions
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Update state after action."""
         # Track if we made an offer
         if 'offer' in action_attempt.lower():
@@ -168,16 +168,18 @@ class NegotiationInstructions(entity_component.ContextComponent):
 
         if self._verbose:
             print(f'[{self._agent_name}] Negotiation round {self._rounds_completed}')
+        return ""
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Process incoming observations."""
         # Track if we received an offer
         if 'offer' in observation.lower():
             self._last_offer_received = observation
+        return ""
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ""
 
     def update(self) -> None:
         """Update internal state."""

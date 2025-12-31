@@ -191,7 +191,7 @@ class NegotiationMemory(entity_component.ContextComponent):
 
         return context
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Update memory after action."""
         # Parse if action was an offer
         if 'offer' in action_attempt.lower():
@@ -203,8 +203,9 @@ class NegotiationMemory(entity_component.ContextComponent):
                 round_number=len(self._offer_history) + 1,
             )
             self.remember_offer(offer)
+        return ""
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Process negotiation observations."""
         # Parse if observation contains an offer
         if 'offer' in observation.lower():
@@ -228,10 +229,11 @@ class NegotiationMemory(entity_component.ContextComponent):
                 summary=observation,
             )
             self.remember_outcome(outcome)
+        return ""
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ""
 
     def update(self) -> None:
         """Update internal state."""

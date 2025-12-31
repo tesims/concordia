@@ -277,12 +277,12 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
         """Provide strategic context before action."""
         return self.get_strategic_context()
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Update after action."""
         # Could parse action to update our position
-        pass
+        return ""
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Process strategic observations."""
         # Enhanced parsing to detect opponent offers and extract values
         if 'offer' in observation.lower():
@@ -292,6 +292,7 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
                 # Adjust our strategy based on the offer
                 self._adjust_strategy_for_offer(parsed_value)
             self.update_state()
+        return ""
     
     def _parse_offer_value(self, text: str) -> Optional[float]:
         """Parse monetary values from text."""
@@ -334,9 +335,9 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
             # Don't adjust target downward too much
             self._target_value = max(self._target_value, self._reservation_value * 1.1)
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ""
 
     def update(self) -> None:
         """Update internal state."""

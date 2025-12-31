@@ -54,7 +54,7 @@ class RecursiveBelief:
     evidence: List[str]  # Supporting observations
 
 
-class TheoryOfMind(entity_component.ActingComponent):
+class TheoryOfMind(entity_component.ContextComponent):
     """Component for theory of mind and emotional intelligence in negotiations."""
 
     def __init__(

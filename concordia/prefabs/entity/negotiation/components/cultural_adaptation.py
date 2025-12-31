@@ -355,22 +355,24 @@ Return only the profile name (e.g., western_business).'''
 
         return context
 
-    def post_act(self, action_attempt: str) -> None:
+    def post_act(self, action_attempt: str) -> str:
         """Track cultural adaptation in action."""
         self._adaptation_history.append((
             self._detected_culture or 'unknown',
             action_attempt
         ))
+        return ""
 
-    def pre_observe(self, observation: str) -> None:
+    def pre_observe(self, observation: str) -> str:
         """Detect cultural cues from observations."""
         # Try to detect culture from substantial communications
         if len(observation) > 100 and 'said:' in observation:
             self.detect_cultural_style(observation)
+        return ""
 
-    def post_observe(self) -> None:
+    def post_observe(self) -> str:
         """Post-observation processing."""
-        pass
+        return ""
 
     def update(self) -> None:
         """Update internal state."""

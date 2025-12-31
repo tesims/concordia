@@ -58,7 +58,7 @@ class TemporalPlan:
     contingencies: Dict[str, str] = dataclasses.field(default_factory=dict)
 
 
-class TemporalStrategy(entity_component.ActingComponent):
+class TemporalStrategy(entity_component.ContextComponent):
     """Component for temporal planning and relationship management in negotiations."""
 
     def __init__(

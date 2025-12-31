@@ -425,7 +425,7 @@ OPPORTUNITIES: [List partnership opportunities]"""
         return parsed
 
 
-class SwarmIntelligence(entity_component.ActingComponent):
+class SwarmIntelligence(entity_component.ContextComponent):
     """Component for collective intelligence through specialized sub-agents."""
 
     def __init__(

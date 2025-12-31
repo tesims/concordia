@@ -212,7 +212,7 @@ class ExperienceReplayBuffer:
         return intersection / union if union > 0 else 0.0
 
 
-class StrategyEvolution(entity_component.ActingComponent):
+class StrategyEvolution(entity_component.ContextComponent):
     """Component for strategy evolution and meta-learning in negotiations."""
 
     def __init__(

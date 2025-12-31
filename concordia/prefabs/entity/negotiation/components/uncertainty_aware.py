@@ -75,7 +75,7 @@ class InformationValue:
     uncertainty_reduction: float
 
 
-class UncertaintyAware(entity_component.ActingComponent):
+class UncertaintyAware(entity_component.ContextComponent):
     """Component for probabilistic reasoning and uncertainty management in negotiations."""
 
     def __init__(
