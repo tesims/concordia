@@ -184,14 +184,19 @@ class TransformerLensWrapper(language_model.LanguageModel):
         model_name: str = "google/gemma-2-2b-it",
         device: str = "cuda",
         layers_to_capture: List[int] = None,
+        torch_dtype: torch.dtype = None,
     ):
         from transformer_lens import HookedTransformer
+
+        # Default to bfloat16 for H100/A100, float16 for older GPUs
+        if torch_dtype is None:
+            torch_dtype = torch.bfloat16 if device == "cuda" else torch.float32
 
         print(f"Loading {model_name} with TransformerLens...")
         self.model = HookedTransformer.from_pretrained(
             model_name,
             device=device,
-            dtype=torch.float16 if device == "cuda" else torch.float32,
+            dtype=torch_dtype,
         )
         self.device = device
 
@@ -343,11 +348,13 @@ class InterpretabilityRunner:
         model_name: str = "google/gemma-2-2b-it",
         device: str = "cuda",
         layers_to_capture: List[int] = None,
+        torch_dtype: torch.dtype = None,
     ):
         self.model = TransformerLensWrapper(
             model_name=model_name,
             device=device,
             layers_to_capture=layers_to_capture,
+            torch_dtype=torch_dtype,
         )
         self.activation_samples: List[ActivationSample] = []
         self._trial_id = 0
