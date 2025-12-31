@@ -491,11 +491,16 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
         return action
 
     def pre_observe(self, observation: str) -> str:
-        """Called before observation is processed."""
+        """Called before observation is processed. Store observation for post_observe."""
+        self._last_observation = observation
         return ""
 
-    def post_observe(self, observation: str) -> str:
-        """Called after observation is processed."""
+    def post_observe(self) -> str:
+        """Called after observation is processed. Uses stored observation."""
+        observation = getattr(self, '_last_observation', '')
+        if not observation:
+            return ""
+
         # Update mental model based on observation
         self._update_mental_model("counterpart", [observation])
 
@@ -514,7 +519,8 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
 
     def observe(self, observation: str) -> None:
         """Process observations for theory of mind insights (legacy method)."""
-        self.post_observe(observation)
+        self._last_observation = observation
+        self.post_observe()
 
     def get_state(self) -> Dict[str, Any]:
         """Get component state."""
