@@ -323,8 +323,8 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
             self._initial_target = self._target_value
         
         # If offer is better than our reservation, become more cooperative
-        if ((self._negotiation_style == 'competitive' and offer_value > self._reservation_value) or
-            (self._negotiation_style == 'cooperative' and offer_value >= self._reservation_value * 0.9)):
+        if ((self._style == 'competitive' and offer_value > self._reservation_value) or
+            (self._style == 'cooperative' and offer_value >= self._reservation_value * 0.9)):
             # Adjust target to be more reasonable
             gap = abs(self._target_value - offer_value)
             self._target_value = offer_value + (gap * 0.3)
