@@ -331,7 +331,7 @@ def main():
     print(f"\n{'='*60}")
     print("EXPERIMENT COMPLETE")
     print(f"{'='*60}")
-    print(f"Total samples: {len(runner.samples)}")
+    print(f"Total samples: {len(runner.activation_samples)}")
     print(f"Activations saved: {activations_path}")
     print(f"Output directory: {output_dir}")
 
@@ -350,7 +350,7 @@ def main():
 
     # Print limitations
     print_limitations(
-        n_samples=len(runner.samples),
+        n_samples=len(runner.activation_samples),
         model_name=args.model,
         causal_validated=False,
     )

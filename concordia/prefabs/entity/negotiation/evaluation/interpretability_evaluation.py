@@ -1049,16 +1049,18 @@ class InterpretabilityRunner:
 
     def run_all_emergent_scenarios(
         self,
-        num_trials_per_scenario: int = 50,
-        agent_modules: List[str] = None,
         scenarios: List[str] = None,
+        trials_per_scenario: int = 50,
+        conditions: List['IncentiveCondition'] = None,
+        agent_modules: List[str] = None,
     ) -> Dict[str, Any]:
         """Run emergent study across all 6 scenarios.
 
         Args:
-            num_trials_per_scenario: Trials per condition per scenario
-            agent_modules: Cognitive modules to enable
             scenarios: List of scenarios (default: all 6)
+            trials_per_scenario: Trials per condition per scenario
+            conditions: List of IncentiveCondition values to test
+            agent_modules: Cognitive modules to enable
 
         Returns:
             Dict with results per scenario
@@ -1069,20 +1071,28 @@ class InterpretabilityRunner:
         scenarios = scenarios or get_emergent_scenarios()
         agent_modules = agent_modules or ['theory_of_mind']
 
+        # Convert conditions to string list for run_emergent_study
+        if conditions is None:
+            condition_strs = ['HIGH_INCENTIVE', 'LOW_INCENTIVE']
+        else:
+            condition_strs = [c.value if hasattr(c, 'value') else c for c in conditions]
+
         print("\n" + "=" * 70)
         print("COMPREHENSIVE EMERGENT DECEPTION STUDY")
         print("=" * 70)
         print(f"Scenarios: {scenarios}")
-        print(f"Trials per scenario (per condition): {num_trials_per_scenario}")
-        print(f"Total trials: {len(scenarios) * num_trials_per_scenario * 2}")
+        print(f"Conditions: {condition_strs}")
+        print(f"Trials per scenario (per condition): {trials_per_scenario}")
+        print(f"Total trials: {len(scenarios) * trials_per_scenario * len(condition_strs)}")
 
         all_results = {}
 
         for scenario in scenarios:
             results = self.run_emergent_study(
                 scenario=scenario,
-                num_trials=num_trials_per_scenario,
+                num_trials=trials_per_scenario,
                 agent_modules=agent_modules,
+                conditions=condition_strs,
             )
             all_results[scenario] = results
 
@@ -1209,158 +1219,104 @@ class InterpretabilityRunner:
         }
 
     def save_dataset(self, filepath: str):
-        """Save activation dataset with all labels and multi-agent enhancements."""
+        """Save activation dataset in format compatible with train_probes.py."""
 
-        all_activations = []
-        all_followup_activations = []  # Apollo Research method
-        all_agent_labels = []
-        all_gm_labels = []
-        all_outcome_labels = []  # Outcome-based labels
-        all_emergent_labels = []  # EMERGENT: Binary deception labels from scenario rules
-        counterpart_indices = []  # Cross-agent pairing
+        # Collect data by layer (train_probes expects Dict[layer, Tensor])
+        activations_by_layer = {}
+        all_gm_deception = []  # Single deception score for probe training
+        all_agent_deception = []  # Perceived deception for comparison
+        all_scenarios = []  # Scenario names for cross-scenario analysis
         metadata = []
 
         for sample in self.activation_samples:
-            layer_acts = [sample.activations[k] for k in sorted(sample.activations.keys())]
-            if layer_acts:
-                stacked = torch.stack(layer_acts)
-                all_activations.append(stacked)
+            # Organize activations by layer
+            for layer_name, activation in sample.activations.items():
+                # Extract layer number from hook name (e.g., "blocks.21.hook_resid_post" -> 21)
+                try:
+                    layer_num = int(layer_name.split('.')[1])
+                except (IndexError, ValueError):
+                    layer_num = layer_name
 
-                # Apollo method: follow-up activations
-                if sample.followup_activations:
-                    followup_acts = [sample.followup_activations[k] for k in sorted(sample.followup_activations.keys())]
-                    if followup_acts:
-                        all_followup_activations.append(torch.stack(followup_acts))
+                if layer_num not in activations_by_layer:
+                    activations_by_layer[layer_num] = []
+                activations_by_layer[layer_num].append(activation)
 
-                # Agent labels (first-person beliefs)
-                all_agent_labels.append(torch.tensor([
-                    sample.perceived_deception,
-                    sample.emotion_intensity,
-                    sample.trust_level,
-                    sample.cooperation_intent,
-                ]))
+            # GM ground truth label (use emergent_ground_truth if available, else actual_deception)
+            if sample.emergent_ground_truth is not None:
+                gm_label = 1.0 if sample.emergent_ground_truth else 0.0
+            else:
+                gm_label = sample.actual_deception
+            all_gm_deception.append(gm_label)
 
-                # GM labels (third-person ground truth)
-                all_gm_labels.append(torch.tensor([
-                    sample.actual_deception,
-                    sample.commitment_violation,
-                    sample.manipulation_score,
-                    sample.consistency_score,
-                ]))
+            # Agent self-report label
+            all_agent_deception.append(sample.perceived_deception)
 
-                # NEW: Outcome labels (for success prediction)
-                outcome_success = 1.0 if sample.trial_outcome == 'agreement' else 0.0
-                all_outcome_labels.append(torch.tensor([
-                    outcome_success,
-                    sample.joint_value if sample.joint_value is not None else 0.0,
-                    sample.agent_utility if sample.agent_utility is not None else 0.0,
-                ]))
+            # Scenario name (use emergent_scenario if available)
+            scenario = sample.emergent_scenario or sample.scenario_type
+            all_scenarios.append(scenario)
 
-                # Cross-agent pairing index
-                counterpart_indices.append(sample.counterpart_idx if sample.counterpart_idx is not None else -1)
+            # Metadata for each sample
+            metadata.append({
+                'trial_id': sample.trial_id,
+                'round_num': sample.round_num,
+                'agent_name': sample.agent_name,
+                'scenario': scenario,
+                'incentive_condition': sample.incentive_condition,
+                'emergent_ground_truth': sample.emergent_ground_truth,
+                'actual_deception': sample.actual_deception,
+                'perceived_deception': sample.perceived_deception,
+            })
 
-                # EMERGENT: Binary deception label from scenario rules
-                emergent_deceptive = 1.0 if sample.emergent_ground_truth else 0.0
-                all_emergent_labels.append(torch.tensor([emergent_deceptive]))
+        if activations_by_layer:
+            # Stack activations by layer: Dict[layer_num, Tensor[N, d_model]]
+            stacked_activations = {}
+            for layer_num, acts in activations_by_layer.items():
+                stacked_activations[layer_num] = torch.stack(acts)
 
-                # Extended metadata with new fields
-                metadata.append({
-                    'trial_id': sample.trial_id,
-                    'round_num': sample.round_num,
-                    'agent_name': sample.agent_name,
-                    'scenario': sample.scenario_type,
-                    'agent_modules': sample.modules_enabled,
-                    'gm_modules': sample.gm_modules_enabled,
-                    # Multi-agent enhancement fields
-                    'counterpart_name': sample.counterpart_name,
-                    'counterpart_idx': sample.counterpart_idx,
-                    'trial_outcome': sample.trial_outcome,
-                    'joint_value': sample.joint_value,
-                    'agent_utility': sample.agent_utility,
-                    'condition_id': sample.condition_id,
-                    # EMERGENT DECEPTION fields
-                    'emergent_scenario': sample.emergent_scenario,
-                    'incentive_condition': sample.incentive_condition,
-                    'scenario_params': sample.scenario_params,
-                    'emergent_ground_truth': sample.emergent_ground_truth,
-                })
-
-        if all_activations:
+            # Format expected by train_probes.py
             dataset = {
-                # Activations
-                'activations': torch.stack(all_activations),
+                # Activations: Dict[layer, Tensor[N, d_model]]
+                'activations': stacked_activations,
 
-                # Apollo Research method: follow-up question activations
-                # Activations after "Was your response deceptive? No"
-                'followup_activations': torch.stack(all_followup_activations) if all_followup_activations else None,
+                # Labels in format expected by train_probes
+                'labels': {
+                    'gm_labels': all_gm_deception,  # List of floats (deception scores)
+                    'agent_labels': all_agent_deception,  # List of floats
+                    'scenario': all_scenarios,  # List of scenario names
+                },
 
-                # Agent labels (first-person: what agent believes about others)
-                'agent_labels': torch.stack(all_agent_labels),
-                'agent_label_names': [
-                    'perceived_deception',  # "I think you're deceiving me"
-                    'emotion_intensity',
-                    'trust_level',
-                    'cooperation_intent',
-                ],
+                # Config info
+                'config': {
+                    'model': getattr(self.model, 'model_name', 'unknown'),
+                    'layers': list(stacked_activations.keys()),
+                    'n_samples': len(all_gm_deception),
+                },
 
-                # GM labels (third-person ground truth: what agent is actually doing)
-                'gm_labels': torch.stack(all_gm_labels),
-                'gm_label_names': [
-                    'actual_deception',     # "You ARE deceiving" (ground truth)
-                    'commitment_violation',
-                    'manipulation_score',
-                    'consistency_score',
-                ],
-
-                # NEW: Outcome labels (for success prediction analysis)
-                'outcome_labels': torch.stack(all_outcome_labels),
-                'outcome_label_names': [
-                    'agreement_reached',    # Binary: did negotiation succeed?
-                    'joint_value',          # Combined utility
-                    'agent_utility',        # This agent's utility
-                ],
-
-                # Cross-agent pairing indices (for alignment analysis)
-                'counterpart_indices': torch.tensor(counterpart_indices, dtype=torch.long),
-
-                # EMERGENT DECEPTION labels (binary, from scenario rules)
-                'emergent_labels': torch.stack(all_emergent_labels) if all_emergent_labels else None,
-                'emergent_label_names': ['is_deceptive'],  # Binary: did model deceive?
-
-                # Backwards compatibility: combined labels
-                'labels': torch.stack(all_agent_labels),  # Legacy format
-                'label_names': ['perceived_deception', 'emotion_intensity', 'trust_level', 'cooperation_intent'],
-
-                # Metadata (includes all new fields)
+                # Full metadata
                 'metadata': metadata,
-                'layers': self.model.hook_names,
             }
 
             torch.save(dataset, filepath)
-            print(f"\nSaved {len(all_activations)} samples to {filepath}")
-            print(f"  Activation shape: {dataset['activations'].shape}")
-            print(f"  Agent labels shape: {dataset['agent_labels'].shape}")
-            print(f"  GM labels shape: {dataset['gm_labels'].shape}")
-            print(f"  Outcome labels shape: {dataset['outcome_labels'].shape}")
-            print(f"  Counterpart indices: {len(counterpart_indices)} pairs")
-            print(f"\nLabel types:")
-            print(f"  Agent (first-person): {dataset['agent_label_names']}")
-            print(f"  GM (ground truth): {dataset['gm_label_names']}")
-            print(f"  Outcome: {dataset['outcome_label_names']}")
 
-            # Print emergent info if present
-            emergent_scenarios = set(m.get('emergent_scenario') for m in metadata if m.get('emergent_scenario'))
-            if emergent_scenarios:
-                print(f"\nEmergent scenarios: {emergent_scenarios}")
-                if dataset['emergent_labels'] is not None:
-                    print(f"  Emergent labels shape: {dataset['emergent_labels'].shape}")
-                    deception_rate = dataset['emergent_labels'].mean().item()
-                    print(f"  Overall deception rate: {deception_rate:.1%}")
+            # Print summary
+            n_samples = len(all_gm_deception)
+            layers = sorted(stacked_activations.keys())
+            d_model = stacked_activations[layers[0]].shape[1] if layers else 0
 
-            # Print condition breakdown if conditions were used
-            conditions = set(m.get('condition_id') for m in metadata if m.get('condition_id'))
-            if conditions:
-                print(f"\nConditions: {conditions}")
+            print(f"\nSaved {n_samples} samples to {filepath}")
+            print(f"  Layers: {layers}")
+            print(f"  Activation dim: {d_model}")
+            print(f"  GM deception rate: {np.mean(all_gm_deception):.1%}")
+
+            # Print per-scenario breakdown
+            unique_scenarios = set(all_scenarios)
+            if len(unique_scenarios) > 1:
+                print(f"\nPer-scenario deception rates:")
+                for scenario in sorted(unique_scenarios):
+                    mask = [s == scenario for s in all_scenarios]
+                    rate = np.mean([all_gm_deception[i] for i, m in enumerate(mask) if m])
+                    count = sum(mask)
+                    print(f"  {scenario}: {rate:.1%} ({count} samples)")
         else:
             print("No samples to save!")
 
