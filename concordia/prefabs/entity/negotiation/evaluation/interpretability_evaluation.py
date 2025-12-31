@@ -515,7 +515,7 @@ class InterpretabilityRunner:
         - Outcome tracking: Records agreement status and utilities for success prediction
         """
 
-        agent_modules = agent_modules or ['theory_of_mind']
+        agent_modules = agent_modules if agent_modules is not None else []
         gm_modules = gm_modules or ['social_intelligence']
         self._trial_id += 1
         trial_samples = []
@@ -774,7 +774,7 @@ class InterpretabilityRunner:
     ) -> EvaluationResult:
         """Run full study with multiple trials."""
 
-        agent_modules = agent_modules or ['theory_of_mind']
+        agent_modules = agent_modules if agent_modules is not None else []
         gm_modules = gm_modules or ['social_intelligence']
 
         print(f"\nRunning {num_trials} trials of {scenario} scenario")
@@ -852,7 +852,8 @@ class InterpretabilityRunner:
         if not EMERGENT_AVAILABLE:
             raise ImportError("emergent_prompts.py not found in evaluation/scenarios/")
 
-        agent_modules = agent_modules or ['theory_of_mind']
+        # Default to empty modules - theory_of_mind has compatibility issues
+        agent_modules = agent_modules if agent_modules is not None else []
         conditions = conditions or ['HIGH_INCENTIVE', 'LOW_INCENTIVE']
 
         print(f"\n{'='*70}")
@@ -1069,7 +1070,7 @@ class InterpretabilityRunner:
             raise ImportError("emergent_prompts.py not found")
 
         scenarios = scenarios or get_emergent_scenarios()
-        agent_modules = agent_modules or ['theory_of_mind']
+        agent_modules = agent_modules if agent_modules is not None else []
 
         # Convert conditions to string list for run_emergent_study
         if conditions is None:
