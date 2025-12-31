@@ -490,8 +490,12 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
 
         return action
 
-    def observe(self, observation: str) -> None:
-        """Process observations for theory of mind insights."""
+    def pre_observe(self, observation: str) -> str:
+        """Called before observation is processed."""
+        return ""
+
+    def post_observe(self, observation: str) -> str:
+        """Called after observation is processed."""
         # Update mental model based on observation
         self._update_mental_model("counterpart", [observation])
 
@@ -505,6 +509,12 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
             recent_emotions = list(self._emotion_history)[-5:]
             for emotion in emotional_state.emotions:
                 self._baseline_patterns[emotion] = np.mean([es.emotions.get(emotion, 0) for es in recent_emotions])
+
+        return ""
+
+    def observe(self, observation: str) -> None:
+        """Process observations for theory of mind insights (legacy method)."""
+        self.post_observe(observation)
 
     def get_state(self) -> Dict[str, Any]:
         """Get component state."""
