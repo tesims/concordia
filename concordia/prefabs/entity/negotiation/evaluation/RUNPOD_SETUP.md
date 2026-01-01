@@ -35,7 +35,7 @@ Complete setup steps for running the deception detection experiment on RunPod.
 
 Run all 3 scenarios on one RTX 4090 pod.
 
-### Quick Setup
+### Quick Setup (Copy-Paste All)
 
 ```bash
 # 1. Clone and checkout
@@ -44,17 +44,30 @@ git clone https://github.com/tesims/concordia.git concordia
 cd concordia
 git checkout emergent-deception-v2
 
-# 2. Install dependencies
+# 2. Install Concordia base
 pip install -e .
-pip install transformer-lens huggingface_hub scikit-learn
+
+# 3. Install evaluation dependencies
+cd concordia/prefabs/entity/negotiation/evaluation
+pip install -r requirements.in
+
+# 4. Fix transformer-lens compatibility (IMPORTANT)
 pip install transformers==4.44.0 accelerate==0.33.0
 
-# 3. Login to HuggingFace
+# 5. Login to HuggingFace (paste token when prompted)
 huggingface-cli login
 
-# 4. Run experiment
-cd concordia/prefabs/entity/negotiation/evaluation
+# 6. Run experiment
 python run_deception_experiment.py --mode emergent --device cuda --dtype bfloat16
+```
+
+### Step-by-Step Verification
+
+After step 4, verify setup works:
+```bash
+python -c "import torch; print(f'PyTorch: {torch.__version__}')"
+python -c "import transformer_lens; print('TransformerLens: OK')"
+python -c "from concordia.prefabs.entity.negotiation.evaluation import InterpretabilityRunner; print('Imports: OK')"
 ```
 
 ---
@@ -63,45 +76,39 @@ python run_deception_experiment.py --mode emergent --device cuda --dtype bfloat1
 
 Run each scenario on a separate RTX 4090 pod for ~3x speedup.
 
-### Pod 1: ultimatum_bluff
+### Setup Script (same for all pods)
 
+Copy this to each pod first:
 ```bash
 cd /workspace
 git clone https://github.com/tesims/concordia.git concordia
-cd concordia && git checkout emergent-deception-v2
-pip install -e . && pip install transformer-lens huggingface_hub scikit-learn
+cd concordia
+git checkout emergent-deception-v2
+pip install -e .
+cd concordia/prefabs/entity/negotiation/evaluation
+pip install -r requirements.in
 pip install transformers==4.44.0 accelerate==0.33.0
 huggingface-cli login
+```
 
-cd concordia/prefabs/entity/negotiation/evaluation
+### Pod 1: ultimatum_bluff
+
+After setup, run:
+```bash
 python run_deception_experiment.py --scenario-name ultimatum_bluff --device cuda --dtype bfloat16 --output ./outputs/ultimatum_bluff
 ```
 
 ### Pod 2: hidden_value
 
+After setup, run:
 ```bash
-cd /workspace
-git clone https://github.com/tesims/concordia.git concordia
-cd concordia && git checkout emergent-deception-v2
-pip install -e . && pip install transformer-lens huggingface_hub scikit-learn
-pip install transformers==4.44.0 accelerate==0.33.0
-huggingface-cli login
-
-cd concordia/prefabs/entity/negotiation/evaluation
 python run_deception_experiment.py --scenario-name hidden_value --device cuda --dtype bfloat16 --output ./outputs/hidden_value
 ```
 
 ### Pod 3: alliance_betrayal
 
+After setup, run:
 ```bash
-cd /workspace
-git clone https://github.com/tesims/concordia.git concordia
-cd concordia && git checkout emergent-deception-v2
-pip install -e . && pip install transformer-lens huggingface_hub scikit-learn
-pip install transformers==4.44.0 accelerate==0.33.0
-huggingface-cli login
-
-cd concordia/prefabs/entity/negotiation/evaluation
 python run_deception_experiment.py --scenario-name alliance_betrayal --device cuda --dtype bfloat16 --output ./outputs/alliance_betrayal
 ```
 
