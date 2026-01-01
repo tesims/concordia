@@ -80,6 +80,7 @@ def run_emergent_experiment(
     trials_per_scenario: int = 40,
     conditions: List[IncentiveCondition] = None,
     max_rounds: int = 3,
+    agent_modules: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Run emergent deception experiment through Concordia framework.
@@ -90,12 +91,15 @@ def run_emergent_experiment(
         trials_per_scenario: Trials per scenario per condition
         conditions: IncentiveCondition values to test
         max_rounds: Max negotiation rounds per trial
+        agent_modules: List of agent modules to enable (default: ['theory_of_mind'])
 
     Returns:
         Dict with all results
     """
     if conditions is None:
         conditions = [IncentiveCondition.HIGH_INCENTIVE, IncentiveCondition.LOW_INCENTIVE]
+    if agent_modules is None:
+        agent_modules = ['theory_of_mind']
 
     print(f"\n{'='*60}")
     print("EMERGENT DECEPTION EXPERIMENT")
@@ -104,6 +108,7 @@ def run_emergent_experiment(
     print(f"Conditions: {[c.value for c in conditions]}")
     print(f"Trials per condition: {trials_per_scenario}")
     print(f"Max rounds: {max_rounds}")
+    print(f"Agent modules: {agent_modules}")
     print(f"Total trials: {len(scenarios) * len(conditions) * trials_per_scenario}")
 
     # Use the integrated run_all_emergent_scenarios method
@@ -112,6 +117,7 @@ def run_emergent_experiment(
         trials_per_scenario=trials_per_scenario,
         conditions=conditions,
         max_rounds=max_rounds,
+        agent_modules=agent_modules,
     )
 
     return results
@@ -245,6 +251,10 @@ def main():
         "--layers", type=str, default=None,
         help="Comma-separated list of layers to capture (default: auto)"
     )
+    parser.add_argument(
+        "--fast", action="store_true",
+        help="Fast mode: disable ToM module for ~3x speedup (less rich agent labels)"
+    )
 
     # Training mode
     parser.add_argument(
@@ -320,7 +330,11 @@ def main():
     print(f"Trials per condition: {args.trials}")
     print(f"Max rounds: {args.max_rounds}")
     print(f"Max tokens: {args.max_tokens}")
+    print(f"Fast mode: {args.fast}")
     print(f"Output directory: {output_dir}")
+
+    # Determine agent modules based on --fast flag
+    agent_modules = [] if args.fast else ['theory_of_mind']
 
     # Initialize runner
     print(f"\nInitializing InterpretabilityRunner...")
@@ -346,6 +360,7 @@ def main():
             scenarios=emergent_scenarios,
             trials_per_scenario=args.trials,
             max_rounds=args.max_rounds,
+            agent_modules=agent_modules,
         )
         all_results["emergent"] = results
 
