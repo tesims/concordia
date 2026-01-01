@@ -223,9 +223,10 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
         )
 
     def update_state(self, opponent_offer: Optional[float] = None) -> None:
-        """Update strategic state based on negotiation progress."""
-        self._state.rounds_elapsed += 1
+        """Update strategic state based on negotiation progress.
 
+        Note: rounds_elapsed is incremented in post_act(), not here.
+        """
         if opponent_offer is not None:
             self._state.opponent_position = opponent_offer
 
@@ -236,9 +237,6 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
                     max(self._state.opponent_position, self._reservation_value),
                     self._state.current_position
                 )
-
-        # Update temperature (decreases over time)
-        self._state.negotiation_temperature = max(0.1, 1.0 - (self._state.rounds_elapsed / 20))
 
     def get_strategic_context(self) -> str:
         """Get current strategic context and guidance."""
@@ -279,7 +277,9 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
 
     def post_act(self, action_attempt: str) -> str:
         """Update after action."""
-        # Could parse action to update our position
+        # Always increment rounds on each action
+        self._state.rounds_elapsed += 1
+        self._state.negotiation_temperature = max(0.1, 1.0 - (self._state.rounds_elapsed / 20))
         return ""
 
     def pre_observe(self, observation: str) -> str:

@@ -161,10 +161,12 @@ class NegotiationInstructions(entity_component.ContextComponent):
 
     def post_act(self, action_attempt: str) -> str:
         """Update state after action."""
+        # Always increment round counter on each action
+        self._rounds_completed += 1
+
         # Track if we made an offer
         if 'offer' in action_attempt.lower():
             self._last_offer_made = action_attempt
-            self._rounds_completed += 1
 
         if self._verbose:
             print(f'[{self._agent_name}] Negotiation round {self._rounds_completed}')
