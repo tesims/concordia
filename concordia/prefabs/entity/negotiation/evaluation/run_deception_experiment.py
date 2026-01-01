@@ -14,17 +14,25 @@ Supports both:
 - EMERGENT mode: Incentive-based, no deception words (novel contribution)
 
 Usage:
-    # Quick test
-    python run_deception_experiment.py --mode emergent --scenarios 2 --trials 10
+    # Quick test (default: Gemma 2B, 3 scenarios, 3 rounds, 40 trials)
+    python run_deception_experiment.py --mode emergent --trials 5
 
-    # Full experiment
-    python run_deception_experiment.py --mode emergent --scenarios 6 --trials 100 --model google/gemma-2-9b-it
+    # Full experiment with defaults
+    python run_deception_experiment.py --mode emergent
+
+    # Single scenario (for parallel pod execution)
+    python run_deception_experiment.py --scenario-name ultimatum_bluff
 
     # With GPU
     python run_deception_experiment.py --device cuda --dtype bfloat16
 
     # Train probes on existing data
     python run_deception_experiment.py --train-only --data activations.pt
+
+Parallel Execution (3 pods):
+    # Pod 1: python run_deception_experiment.py --scenario-name ultimatum_bluff
+    # Pod 2: python run_deception_experiment.py --scenario-name hidden_value
+    # Pod 3: python run_deception_experiment.py --scenario-name alliance_betrayal
 """
 
 import argparse
@@ -69,8 +77,9 @@ from concordia.prefabs.entity.negotiation.evaluation import (
 def run_emergent_experiment(
     runner: "InterpretabilityRunner",
     scenarios: List[str],
-    trials_per_scenario: int = 50,
+    trials_per_scenario: int = 40,
     conditions: List[IncentiveCondition] = None,
+    max_rounds: int = 3,
 ) -> Dict[str, Any]:
     """
     Run emergent deception experiment through Concordia framework.
@@ -80,6 +89,7 @@ def run_emergent_experiment(
         scenarios: List of scenario names to run
         trials_per_scenario: Trials per scenario per condition
         conditions: IncentiveCondition values to test
+        max_rounds: Max negotiation rounds per trial
 
     Returns:
         Dict with all results
@@ -93,6 +103,7 @@ def run_emergent_experiment(
     print(f"Scenarios: {scenarios}")
     print(f"Conditions: {[c.value for c in conditions]}")
     print(f"Trials per condition: {trials_per_scenario}")
+    print(f"Max rounds: {max_rounds}")
     print(f"Total trials: {len(scenarios) * len(conditions) * trials_per_scenario}")
 
     # Use the integrated run_all_emergent_scenarios method
@@ -100,6 +111,7 @@ def run_emergent_experiment(
         scenarios=scenarios,
         trials_per_scenario=trials_per_scenario,
         conditions=conditions,
+        max_rounds=max_rounds,
     )
 
     return results
@@ -193,8 +205,8 @@ def main():
 
     # Model configuration
     parser.add_argument(
-        "--model", type=str, default="google/gemma-2-9b-it",
-        help="HuggingFace model name"
+        "--model", type=str, default="google/gemma-2-2b-it",
+        help="HuggingFace model name (default: gemma-2-2b-it)"
     )
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
@@ -208,12 +220,26 @@ def main():
 
     # Experiment configuration
     parser.add_argument(
-        "--scenarios", type=int, default=6,
-        help="Number of scenarios to run (max 6)"
+        "--scenarios", type=int, default=3,
+        help="Number of scenarios to run (max 6, default: 3)"
     )
     parser.add_argument(
-        "--trials", type=int, default=50,
-        help="Trials per scenario per condition"
+        "--scenario-name", type=str, default=None,
+        choices=["ultimatum_bluff", "capability_bluff", "hidden_value",
+                 "info_withholding", "promise_break", "alliance_betrayal"],
+        help="Run a specific scenario only (for parallel execution across pods)"
+    )
+    parser.add_argument(
+        "--trials", type=int, default=40,
+        help="Trials per scenario per condition (default: 40)"
+    )
+    parser.add_argument(
+        "--max-rounds", type=int, default=3,
+        help="Max negotiation rounds per trial (default: 3)"
+    )
+    parser.add_argument(
+        "--max-tokens", type=int, default=128,
+        help="Max tokens per LLM response (default: 128)"
     )
     parser.add_argument(
         "--layers", type=str, default=None,
@@ -249,13 +275,26 @@ def main():
         results = train_probes_on_data(args.data, str(output_dir))
         return
 
-    # Get scenarios
+    # Get scenarios - support both --scenario-name (single) and --scenarios (count)
     all_emergent = get_emergent_scenarios()
     all_instructed = get_instructed_scenarios()
 
-    n_scenarios = min(args.scenarios, 6)
-    emergent_scenarios = all_emergent[:n_scenarios]
-    instructed_scenarios = all_instructed[:n_scenarios]
+    if args.scenario_name:
+        # Single scenario mode (for parallel pod execution)
+        emergent_scenarios = [args.scenario_name]
+        instructed_scenarios = [args.scenario_name]
+        n_scenarios = 1
+    else:
+        # Multi-scenario mode (default: 3 scenarios)
+        # Use specific scenarios optimized for diverse deception rates
+        default_scenarios = ["ultimatum_bluff", "hidden_value", "alliance_betrayal"]
+        n_scenarios = min(args.scenarios, 6)
+        if n_scenarios <= 3:
+            emergent_scenarios = default_scenarios[:n_scenarios]
+            instructed_scenarios = default_scenarios[:n_scenarios]
+        else:
+            emergent_scenarios = all_emergent[:n_scenarios]
+            instructed_scenarios = all_instructed[:n_scenarios]
 
     # Parse layers
     layers = None
@@ -277,8 +316,10 @@ def main():
     print(f"Model: {args.model}")
     print(f"Device: {args.device}")
     print(f"Dtype: {args.dtype}")
-    print(f"Scenarios: {n_scenarios}")
+    print(f"Scenarios: {emergent_scenarios}")
     print(f"Trials per condition: {args.trials}")
+    print(f"Max rounds: {args.max_rounds}")
+    print(f"Max tokens: {args.max_tokens}")
     print(f"Output directory: {output_dir}")
 
     # Initialize runner
@@ -290,6 +331,7 @@ def main():
         device=args.device,
         torch_dtype=dtype,
         layers_to_capture=layers,
+        max_tokens=args.max_tokens,
     )
 
     init_time = time.time() - start_time
@@ -303,6 +345,7 @@ def main():
             runner=runner,
             scenarios=emergent_scenarios,
             trials_per_scenario=args.trials,
+            max_rounds=args.max_rounds,
         )
         all_results["emergent"] = results
 

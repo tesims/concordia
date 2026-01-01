@@ -185,6 +185,7 @@ class TransformerLensWrapper(language_model.LanguageModel):
         device: str = "cuda",
         layers_to_capture: List[int] = None,
         torch_dtype: torch.dtype = None,
+        max_tokens: int = 256,
     ):
         from transformer_lens import HookedTransformer
 
@@ -199,6 +200,7 @@ class TransformerLensWrapper(language_model.LanguageModel):
             dtype=torch_dtype,
         )
         self.device = device
+        self.default_max_tokens = max_tokens
 
         # Default: capture first, middle, and last layers
         n_layers = self.model.cfg.n_layers
@@ -211,12 +213,13 @@ class TransformerLensWrapper(language_model.LanguageModel):
 
         print(f"  Loaded: {n_layers} layers, {self.model.cfg.d_model} dims")
         print(f"  Capturing layers: {self.layers_to_capture}")
+        print(f"  Max tokens: {self.default_max_tokens}")
 
     def sample_text(
         self,
         prompt: str,
         *,
-        max_tokens: int = 256,
+        max_tokens: int = None,
         terminators: tuple = (),
         temperature: float = 0.7,
         timeout: float = 60,
@@ -224,6 +227,10 @@ class TransformerLensWrapper(language_model.LanguageModel):
     ) -> str:
         """Generate text and capture activations."""
         self._call_count += 1
+
+        # Use instance default if not specified
+        if max_tokens is None:
+            max_tokens = self.default_max_tokens
 
         # Tokenize
         tokens = self.model.to_tokens(prompt)
@@ -349,12 +356,14 @@ class InterpretabilityRunner:
         device: str = "cuda",
         layers_to_capture: List[int] = None,
         torch_dtype: torch.dtype = None,
+        max_tokens: int = 128,
     ):
         self.model = TransformerLensWrapper(
             model_name=model_name,
             device=device,
             layers_to_capture=layers_to_capture,
             torch_dtype=torch_dtype,
+            max_tokens=max_tokens,
         )
         self.activation_samples: List[ActivationSample] = []
         self._trial_id = 0
@@ -1054,6 +1063,7 @@ class InterpretabilityRunner:
         trials_per_scenario: int = 50,
         conditions: List['IncentiveCondition'] = None,
         agent_modules: List[str] = None,
+        max_rounds: int = 3,
     ) -> Dict[str, Any]:
         """Run emergent study across all 6 scenarios.
 
@@ -1062,6 +1072,7 @@ class InterpretabilityRunner:
             trials_per_scenario: Trials per condition per scenario
             conditions: List of IncentiveCondition values to test
             agent_modules: Cognitive modules to enable
+            max_rounds: Max negotiation rounds per trial (default: 3)
 
         Returns:
             Dict with results per scenario
@@ -1084,6 +1095,7 @@ class InterpretabilityRunner:
         print(f"Scenarios: {scenarios}")
         print(f"Conditions: {condition_strs}")
         print(f"Trials per scenario (per condition): {trials_per_scenario}")
+        print(f"Max rounds per trial: {max_rounds}")
         print(f"Total trials: {len(scenarios) * trials_per_scenario * len(condition_strs)}")
 
         all_results = {}
@@ -1093,6 +1105,7 @@ class InterpretabilityRunner:
                 scenario=scenario,
                 num_trials=trials_per_scenario,
                 agent_modules=agent_modules,
+                max_rounds=max_rounds,
                 conditions=condition_strs,
             )
             all_results[scenario] = results
