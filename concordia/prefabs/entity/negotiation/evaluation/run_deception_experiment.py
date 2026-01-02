@@ -81,6 +81,7 @@ def run_emergent_experiment(
     conditions: List[IncentiveCondition] = None,
     max_rounds: int = 3,
     agent_modules: List[str] = None,
+    ultrafast: bool = False,
 ) -> Dict[str, Any]:
     """
     Run emergent deception experiment through Concordia framework.
@@ -92,6 +93,7 @@ def run_emergent_experiment(
         conditions: IncentiveCondition values to test
         max_rounds: Max negotiation rounds per trial
         agent_modules: List of agent modules to enable (default: ['theory_of_mind'])
+        ultrafast: Use minimal agents for ~5x speedup (default: False)
 
     Returns:
         Dict with all results
@@ -109,6 +111,7 @@ def run_emergent_experiment(
     print(f"Trials per condition: {trials_per_scenario}")
     print(f"Max rounds: {max_rounds}")
     print(f"Agent modules: {agent_modules}")
+    print(f"Ultrafast mode: {ultrafast}")
     print(f"Total trials: {len(scenarios) * len(conditions) * trials_per_scenario}")
 
     # Use the integrated run_all_emergent_scenarios method
@@ -118,6 +121,7 @@ def run_emergent_experiment(
         conditions=conditions,
         max_rounds=max_rounds,
         agent_modules=agent_modules,
+        ultrafast=ultrafast,
     )
 
     return results
@@ -255,6 +259,10 @@ def main():
         "--fast", action="store_true",
         help="Fast mode: disable ToM module for ~3x speedup (less rich agent labels)"
     )
+    parser.add_argument(
+        "--ultrafast", action="store_true",
+        help="Ultrafast mode: use minimal agents for ~5x additional speedup (2 LLM calls/round vs 10)"
+    )
 
     # Training mode
     parser.add_argument(
@@ -331,6 +339,7 @@ def main():
     print(f"Max rounds: {args.max_rounds}")
     print(f"Max tokens: {args.max_tokens}")
     print(f"Fast mode: {args.fast}")
+    print(f"Ultrafast mode: {args.ultrafast}")
     print(f"Output directory: {output_dir}")
 
     # Determine agent modules based on --fast flag
@@ -361,6 +370,7 @@ def main():
             trials_per_scenario=args.trials,
             max_rounds=args.max_rounds,
             agent_modules=agent_modules,
+            ultrafast=args.ultrafast,
         )
         all_results["emergent"] = results
 
