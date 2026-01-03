@@ -1,0 +1,115 @@
+{
+  "sanity_checks": {
+    "label_variance": {
+      "mean": 0.06666666666666667,
+      "std": 0.24944382578492946,
+      "min": 0.0,
+      "max": 1.0,
+      "n_unique": 2,
+      "passed": true
+    },
+    "random_labels": {
+      "mean_shuffled_r2": -0.06290673058694189,
+      "std_shuffled_r2": 0.12650671743330225,
+      "max_shuffled_r2": 0.12900983160100166,
+      "passed": true
+    },
+    "train_test_gap": {
+      "train_r2": 0.4090400420963397,
+      "test_r2": -0.7969093115714379,
+      "gap": 1.2059493536677777,
+      "passed": false
+    }
+  },
+  "layer_analysis": {
+    "0": {
+      "gm": {
+        "layer": 0,
+        "label_type": "gm",
+        "r2_score": -0.5272938411957138,
+        "accuracy": 0.9666666666666667,
+        "auc": 0.4482758620689655,
+        "train_r2": 0.18719090908885094,
+        "test_r2": -0.5272938411957138,
+        "cross_val_mean": -5.96947171709755,
+        "cross_val_std": 4.82652838662454
+      },
+      "agent": {
+        "layer": 0,
+        "label_type": "agent",
+        "r2_score": -0.7442323515778333,
+        "accuracy": 1.0,
+        "auc": NaN,
+        "train_r2": 0.4125962908909875,
+        "test_r2": -0.7442323515778333,
+        "cross_val_mean": -2.91444494771143,
+        "cross_val_std": 1.6420878841330506
+      }
+    },
+    "13": {
+      "gm": {
+        "layer": 13,
+        "label_type": "gm",
+        "r2_score": -0.8392137644355038,
+        "accuracy": 0.9666666666666667,
+        "auc": 0.1724137931034483,
+        "train_r2": 0.41662320901373306,
+        "test_r2": -0.8392137644355038,
+        "cross_val_mean": -1.5838619240586893,
+        "cross_val_std": 1.7130613261619616
+      },
+      "agent": {
+        "layer": 13,
+        "label_type": "agent",
+        "r2_score": -0.6542796236302613,
+        "accuracy": 1.0,
+        "auc": NaN,
+        "train_r2": 0.318149634076758,
+        "test_r2": -0.6542796236302613,
+        "cross_val_mean": -2.0876193784163783,
+        "cross_val_std": 0.8444028280243061
+      }
+    },
+    "25": {
+      "gm": {
+        "layer": 25,
+        "label_type": "gm",
+        "r2_score": -0.7522611163067965,
+        "accuracy": 0.9666666666666667,
+        "auc": 0.4137931034482759,
+        "train_r2": 0.6671544743591861,
+        "test_r2": -0.7522611163067965,
+        "cross_val_mean": -1.225893057623631,
+        "cross_val_std": 0.8431240904805981
+      },
+      "agent": {
+        "layer": 25,
+        "label_type": "agent",
+        "r2_score": -0.14302936942608335,
+        "accuracy": 1.0,
+        "auc": NaN,
+        "train_r2": 0.4132237767952609,
+        "test_r2": -0.14302936942608335,
+        "cross_val_mean": -1.021218866550708,
+        "cross_val_std": 0.42290759591310323
+      }
+    }
+  },
+  "gm_vs_agent": {
+    "gm_ridge_r2": -0.5258172803367258,
+    "agent_ridge_r2": -0.7946448633420831,
+    "gm_mass_mean_r2": -6.6141513073606415,
+    "gm_auc": 0.4482758620689655,
+    "agent_auc": NaN,
+    "gm_mass_mean_auc": 0.9310344827586207,
+    "gm_wins": true
+  },
+  "generalization": {},
+  "deception_rates": {
+    "ultimatum_bluff": 0.06666666666666667
+  },
+  "best_probe": {
+    "layer": 0,
+    "r2": -0.5272938411957138
+  }
+}

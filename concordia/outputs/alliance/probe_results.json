@@ -1,0 +1,115 @@
+{
+  "sanity_checks": {
+    "label_variance": {
+      "mean": 0.14,
+      "std": 0.34698703145794946,
+      "min": 0.0,
+      "max": 1.0,
+      "n_unique": 2,
+      "passed": true
+    },
+    "random_labels": {
+      "mean_shuffled_r2": -0.2861704256151297,
+      "std_shuffled_r2": 0.2748147107032276,
+      "max_shuffled_r2": -0.013948771456267828,
+      "passed": true
+    },
+    "train_test_gap": {
+      "train_r2": 0.4150599286625274,
+      "test_r2": -0.21458961206593385,
+      "gap": 0.6296495407284612,
+      "passed": false
+    }
+  },
+  "layer_analysis": {
+    "0": {
+      "gm": {
+        "layer": 0,
+        "label_type": "gm",
+        "r2_score": -0.5770608999282192,
+        "accuracy": 0.9,
+        "auc": 0.17283950617283952,
+        "train_r2": 0.4328994943934078,
+        "test_r2": -0.5770608999282192,
+        "cross_val_mean": -27.065353463794963,
+        "cross_val_std": 21.965716957527455
+      },
+      "agent": {
+        "layer": 0,
+        "label_type": "agent",
+        "r2_score": -0.07741356633324958,
+        "accuracy": 1.0,
+        "auc": NaN,
+        "train_r2": 0.43594054101722535,
+        "test_r2": -0.07741356633324958,
+        "cross_val_mean": -23.404233162562456,
+        "cross_val_std": 20.009310195186142
+      }
+    },
+    "13": {
+      "gm": {
+        "layer": 13,
+        "label_type": "gm",
+        "r2_score": -0.1982143251488777,
+        "accuracy": 0.9,
+        "auc": 0.5432098765432098,
+        "train_r2": 0.41166750106228167,
+        "test_r2": -0.1982143251488777,
+        "cross_val_mean": -0.8969819250447607,
+        "cross_val_std": 0.6840149566601128
+      },
+      "agent": {
+        "layer": 13,
+        "label_type": "agent",
+        "r2_score": 0.04592952910838943,
+        "accuracy": 1.0,
+        "auc": NaN,
+        "train_r2": 0.4843481320112746,
+        "test_r2": 0.04592952910838943,
+        "cross_val_mean": -0.5721530508573348,
+        "cross_val_std": 0.22151286849561347
+      }
+    },
+    "25": {
+      "gm": {
+        "layer": 25,
+        "label_type": "gm",
+        "r2_score": -0.21555108878620488,
+        "accuracy": 0.9,
+        "auc": 0.6419753086419753,
+        "train_r2": 0.5180576241003965,
+        "test_r2": -0.21555108878620488,
+        "cross_val_mean": -2.2067874256236406,
+        "cross_val_std": 1.636390065352977
+      },
+      "agent": {
+        "layer": 25,
+        "label_type": "agent",
+        "r2_score": 0.1184239173339886,
+        "accuracy": 1.0,
+        "auc": NaN,
+        "train_r2": 0.4480549392818032,
+        "test_r2": 0.1184239173339886,
+        "cross_val_mean": -1.1438320067400614,
+        "cross_val_std": 1.0915301862247977
+      }
+    }
+  },
+  "gm_vs_agent": {
+    "gm_ridge_r2": -0.2030455526432322,
+    "agent_ridge_r2": 0.05438172912360595,
+    "gm_mass_mean_r2": -1.9828017625548702,
+    "gm_auc": 0.5308641975308642,
+    "agent_auc": NaN,
+    "gm_mass_mean_auc": 0.8271604938271604,
+    "gm_wins": false
+  },
+  "generalization": {},
+  "deception_rates": {
+    "alliance_betrayal": 0.14
+  },
+  "best_probe": {
+    "layer": 13,
+    "r2": -0.1982143251488777
+  }
+}
