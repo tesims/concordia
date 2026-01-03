@@ -82,6 +82,7 @@ def run_emergent_experiment(
     max_rounds: int = 3,
     agent_modules: List[str] = None,
     ultrafast: bool = False,
+    checkpoint_dir: str = None,
 ) -> Dict[str, Any]:
     """
     Run emergent deception experiment through Concordia framework.
@@ -122,6 +123,7 @@ def run_emergent_experiment(
         max_rounds=max_rounds,
         agent_modules=agent_modules,
         ultrafast=ultrafast,
+        checkpoint_dir=checkpoint_dir,
     )
 
     return results
@@ -293,12 +295,23 @@ def main():
         "--output", type=str, default="./experiment_output",
         help="Output directory"
     )
+    parser.add_argument(
+        "--checkpoint-dir", type=str, default=None,
+        help="Directory for checkpoint saves after each trial (enables crash recovery)"
+    )
 
     args = parser.parse_args()
 
     # Create output directory
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create checkpoint directory if specified
+    checkpoint_dir = None
+    if args.checkpoint_dir:
+        checkpoint_dir = Path(args.checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Checkpoints will be saved to: {checkpoint_dir}")
 
     # Training-only mode
     if args.train_only:
@@ -392,6 +405,7 @@ def main():
             max_rounds=args.max_rounds,
             agent_modules=agent_modules,
             ultrafast=args.ultrafast,
+            checkpoint_dir=str(checkpoint_dir) if checkpoint_dir else None,
         )
         all_results["emergent"] = results
 

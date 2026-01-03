@@ -1200,6 +1200,7 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
         max_rounds: int = 5,
         conditions: List[str] = None,
         ultrafast: bool = False,
+        checkpoint_dir: str = None,
     ) -> Dict[str, Any]:
         """Run emergent deception study with real Concordia agents.
 
@@ -1267,6 +1268,11 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
 
                 if trial_result['deception_detected']:
                     deception_count += 1
+
+                # Checkpoint after each trial if directory specified
+                if checkpoint_dir:
+                    checkpoint_path = f"{checkpoint_dir}/checkpoint_{scenario}_{condition}_trial{trial+1:03d}.pt"
+                    self.save_dataset(checkpoint_path)
 
                 if (trial + 1) % 10 == 0:
                     rate = deception_count / (trial + 1)
@@ -1465,6 +1471,7 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
         agent_modules: List[str] = None,
         max_rounds: int = 3,
         ultrafast: bool = False,
+        checkpoint_dir: str = None,
     ) -> Dict[str, Any]:
         """Run emergent study across all 6 scenarios.
 
@@ -1511,6 +1518,7 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
                 max_rounds=max_rounds,
                 conditions=condition_strs,
                 ultrafast=ultrafast,
+                checkpoint_dir=checkpoint_dir,
             )
             all_results[scenario] = results
 
