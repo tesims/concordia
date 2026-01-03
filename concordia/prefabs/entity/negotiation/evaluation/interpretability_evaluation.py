@@ -1234,15 +1234,15 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
         agent_modules = agent_modules if agent_modules is not None else ['theory_of_mind']
         conditions = conditions or ['HIGH_INCENTIVE', 'LOW_INCENTIVE']
 
-        print(f"\n{'='*70}")
-        print(f"EMERGENT DECEPTION STUDY: {scenario.upper()}")
-        print(f"{'='*70}")
-        print(f"Trials per condition: {num_trials}")
-        print(f"Conditions: {conditions}")
-        print(f"Agent modules: {agent_modules}")
-        print(f"Max rounds: {max_rounds}")
-        print(f"Ultrafast mode: {ultrafast}")
-        print("-" * 70)
+        print(f"\n{'='*70}", flush=True)
+        print(f"EMERGENT DECEPTION STUDY: {scenario.upper()}", flush=True)
+        print(f"{'='*70}", flush=True)
+        print(f"Trials per condition: {num_trials}", flush=True)
+        print(f"Conditions: {conditions}", flush=True)
+        print(f"Agent modules: {agent_modules}", flush=True)
+        print(f"Max rounds: {max_rounds}", flush=True)
+        print(f"Ultrafast mode: {ultrafast}", flush=True)
+        print("-" * 70, flush=True)
 
         results = {
             'scenario': scenario,
@@ -1252,12 +1252,13 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
         }
 
         for condition in conditions:
-            print(f"\n[{condition}]")
+            print(f"\n[{condition}]", flush=True)
             condition_enum = IncentiveCondition.HIGH_INCENTIVE if condition == 'HIGH_INCENTIVE' else IncentiveCondition.LOW_INCENTIVE
             condition_results = []
             deception_count = 0
 
             for trial in range(num_trials):
+                print(f"  Trial {trial+1}/{num_trials}...", end=" ", flush=True)
                 trial_result = self._run_emergent_trial(
                     scenario=scenario,
                     condition=condition_enum,
@@ -1270,6 +1271,9 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
 
                 if trial_result['deception_detected']:
                     deception_count += 1
+                    print("DECEPTION", flush=True)
+                else:
+                    print("honest", flush=True)
 
                 # Checkpoint after each trial if directory specified
                 if checkpoint_dir:
@@ -1278,7 +1282,7 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
 
                 if (trial + 1) % 10 == 0:
                     rate = deception_count / (trial + 1)
-                    print(f"  Trial {trial+1}/{num_trials}: deception_rate={rate:.1%}")
+                    print(f"  >> Progress: {trial+1}/{num_trials}, deception_rate={rate:.1%}", flush=True)
 
             results['conditions'][condition] = {
                 'num_trials': num_trials,
@@ -1500,15 +1504,15 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
         else:
             condition_strs = [c.value if hasattr(c, 'value') else c for c in conditions]
 
-        print("\n" + "=" * 70)
-        print("COMPREHENSIVE EMERGENT DECEPTION STUDY")
-        print("=" * 70)
-        print(f"Scenarios: {scenarios}")
-        print(f"Conditions: {condition_strs}")
-        print(f"Trials per scenario (per condition): {trials_per_scenario}")
-        print(f"Max rounds per trial: {max_rounds}")
-        print(f"Ultrafast mode: {ultrafast}")
-        print(f"Total trials: {len(scenarios) * trials_per_scenario * len(condition_strs)}")
+        print("\n" + "=" * 70, flush=True)
+        print("COMPREHENSIVE EMERGENT DECEPTION STUDY", flush=True)
+        print("=" * 70, flush=True)
+        print(f"Scenarios: {scenarios}", flush=True)
+        print(f"Conditions: {condition_strs}", flush=True)
+        print(f"Trials per scenario (per condition): {trials_per_scenario}", flush=True)
+        print(f"Max rounds per trial: {max_rounds}", flush=True)
+        print(f"Ultrafast mode: {ultrafast}", flush=True)
+        print(f"Total trials: {len(scenarios) * trials_per_scenario * len(condition_strs)}", flush=True)
 
         all_results = {}
 

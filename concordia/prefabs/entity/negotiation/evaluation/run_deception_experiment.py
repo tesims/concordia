@@ -104,16 +104,16 @@ def run_emergent_experiment(
     if agent_modules is None:
         agent_modules = ['theory_of_mind']
 
-    print(f"\n{'='*60}")
-    print("EMERGENT DECEPTION EXPERIMENT")
-    print(f"{'='*60}")
-    print(f"Scenarios: {scenarios}")
-    print(f"Conditions: {[c.value for c in conditions]}")
-    print(f"Trials per condition: {trials_per_scenario}")
-    print(f"Max rounds: {max_rounds}")
-    print(f"Agent modules: {agent_modules}")
-    print(f"Ultrafast mode: {ultrafast}")
-    print(f"Total trials: {len(scenarios) * len(conditions) * trials_per_scenario}")
+    print(f"\n{'='*60}", flush=True)
+    print("EMERGENT DECEPTION EXPERIMENT", flush=True)
+    print(f"{'='*60}", flush=True)
+    print(f"Scenarios: {scenarios}", flush=True)
+    print(f"Conditions: {[c.value for c in conditions]}", flush=True)
+    print(f"Trials per condition: {trials_per_scenario}", flush=True)
+    print(f"Max rounds: {max_rounds}", flush=True)
+    print(f"Agent modules: {agent_modules}", flush=True)
+    print(f"Ultrafast mode: {ultrafast}", flush=True)
+    print(f"Total trials: {len(scenarios) * len(conditions) * trials_per_scenario}", flush=True)
 
     # Use the integrated run_all_emergent_scenarios method
     results = runner.run_all_emergent_scenarios(
@@ -354,30 +354,30 @@ def main():
     }
     dtype = dtype_map[args.dtype]
 
-    print(f"\n{'='*60}")
-    print("DECEPTION DETECTION EXPERIMENT")
-    print(f"{'='*60}")
-    print(f"Mode: {args.mode}")
-    print(f"Model: {args.model}")
-    print(f"Device: {args.device}")
-    print(f"Dtype: {args.dtype}")
-    print(f"Scenarios: {emergent_scenarios}")
-    print(f"Trials per condition: {args.trials}")
-    print(f"Max rounds: {args.max_rounds}")
-    print(f"Max tokens: {args.max_tokens}")
-    print(f"Fast mode: {args.fast}")
-    print(f"Ultrafast mode: {args.ultrafast}")
-    print(f"Hybrid mode: {args.hybrid}")
-    print(f"SAE enabled: {args.sae}")
+    print(f"\n{'='*60}", flush=True)
+    print("DECEPTION DETECTION EXPERIMENT", flush=True)
+    print(f"{'='*60}", flush=True)
+    print(f"Mode: {args.mode}", flush=True)
+    print(f"Model: {args.model}", flush=True)
+    print(f"Device: {args.device}", flush=True)
+    print(f"Dtype: {args.dtype}", flush=True)
+    print(f"Scenarios: {emergent_scenarios}", flush=True)
+    print(f"Trials per condition: {args.trials}", flush=True)
+    print(f"Max rounds: {args.max_rounds}", flush=True)
+    print(f"Max tokens: {args.max_tokens}", flush=True)
+    print(f"Fast mode: {args.fast}", flush=True)
+    print(f"Ultrafast mode: {args.ultrafast}", flush=True)
+    print(f"Hybrid mode: {args.hybrid}", flush=True)
+    print(f"SAE enabled: {args.sae}", flush=True)
     if args.sae:
-        print(f"SAE layer: {args.sae_layer}")
-    print(f"Output directory: {output_dir}")
+        print(f"SAE layer: {args.sae_layer}", flush=True)
+    print(f"Output directory: {output_dir}", flush=True)
 
     # Determine agent modules based on --fast flag
     agent_modules = [] if args.fast else ['theory_of_mind']
 
     # Initialize runner
-    print(f"\nInitializing InterpretabilityRunner...")
+    print(f"\nInitializing InterpretabilityRunner...", flush=True)
     start_time = time.time()
 
     runner = InterpretabilityRunner(
@@ -392,7 +392,7 @@ def main():
     )
 
     init_time = time.time() - start_time
-    print(f"Initialization complete in {init_time:.1f}s")
+    print(f"Initialization complete in {init_time:.1f}s", flush=True)
 
     # Run experiments
     all_results = {}
