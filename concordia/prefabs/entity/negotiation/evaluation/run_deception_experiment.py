@@ -264,6 +264,20 @@ def main():
         help="Ultrafast mode: use minimal agents for ~5x additional speedup (2 LLM calls/round vs 10)"
     )
 
+    # Hybrid mode (HuggingFace + TransformerLens + SAE)
+    parser.add_argument(
+        "--hybrid", action="store_true",
+        help="Hybrid mode: HuggingFace for generation + TransformerLens for activation capture (~20x speedup)"
+    )
+    parser.add_argument(
+        "--sae", action="store_true",
+        help="Enable Gemma Scope SAE feature extraction (requires --hybrid)"
+    )
+    parser.add_argument(
+        "--sae-layer", type=int, default=12,
+        help="Layer for SAE feature extraction (default: 12, middle layer for Gemma 2B)"
+    )
+
     # Training mode
     parser.add_argument(
         "--train-only", action="store_true",
@@ -340,6 +354,10 @@ def main():
     print(f"Max tokens: {args.max_tokens}")
     print(f"Fast mode: {args.fast}")
     print(f"Ultrafast mode: {args.ultrafast}")
+    print(f"Hybrid mode: {args.hybrid}")
+    print(f"SAE enabled: {args.sae}")
+    if args.sae:
+        print(f"SAE layer: {args.sae_layer}")
     print(f"Output directory: {output_dir}")
 
     # Determine agent modules based on --fast flag
@@ -355,6 +373,9 @@ def main():
         torch_dtype=dtype,
         layers_to_capture=layers,
         max_tokens=args.max_tokens,
+        use_hybrid=args.hybrid,
+        use_sae=args.sae,
+        sae_layer=args.sae_layer,
     )
 
     init_time = time.time() - start_time

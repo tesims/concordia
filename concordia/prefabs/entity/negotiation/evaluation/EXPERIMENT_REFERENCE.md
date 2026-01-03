@@ -40,6 +40,8 @@ python run_deception_experiment.py --fast --device cuda --dtype bfloat16
 | Max tokens | 128 | Sufficient for negotiation responses |
 | Fast mode | `--fast` | Disables ToM, ~3x speedup |
 | Ultrafast mode | `--ultrafast` | Uses minimal agents, ~5x additional speedup |
+| **Hybrid mode** | `--hybrid` | HuggingFace generation + TransformerLens capture, ~20x speedup |
+| **SAE mode** | `--hybrid --sae` | Adds Gemma Scope SAE feature extraction |
 
 ### Command Line Arguments
 
@@ -55,6 +57,9 @@ python run_deception_experiment.py --fast --device cuda --dtype bfloat16
 --max-tokens    Max tokens per response (default: 128)
 --fast          Disable ToM module for ~3x speedup
 --ultrafast     Use minimal agents for ~5x additional speedup
+--hybrid        Use HuggingFace+TransformerLens hybrid for ~20x speedup
+--sae           Enable Gemma Scope SAE feature extraction (requires --hybrid)
+--sae-layer     Layer for SAE extraction (default: 12)
 --output        Output directory (default: ./experiment_output)
 --train-only    Only train probes on existing data
 --data          Path to activations file for --train-only

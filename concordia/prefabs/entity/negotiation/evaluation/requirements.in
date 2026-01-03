@@ -15,6 +15,9 @@ torch
 transformer-lens
 accelerate
 
+# Sparse Autoencoders (Gemma Scope)
+sae-lens>=0.5.0
+
 # HuggingFace model access
 huggingface_hub
 
