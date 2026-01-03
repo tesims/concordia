@@ -1658,6 +1658,8 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
         all_gm_deception = []  # Single deception score for probe training
         all_agent_deception = []  # Perceived deception for comparison
         all_scenarios = []  # Scenario names for cross-scenario analysis
+        all_sae_features = []  # SAE feature activations (if available)
+        all_sae_top_features = []  # Top-k SAE feature indices
         metadata = []
 
         for sample in self.activation_samples:
@@ -1699,6 +1701,11 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
                 'perceived_deception': sample.perceived_deception,
             })
 
+            # SAE features (if available)
+            if sample.sae_features is not None:
+                all_sae_features.append(sample.sae_features)
+                all_sae_top_features.append(sample.sae_top_features or [])
+
         if activations_by_layer:
             # Stack activations by layer: Dict[layer_num, Tensor[N, d_model]]
             stacked_activations = {}
@@ -1722,11 +1729,34 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
                     'model': getattr(self.model, 'model_name', 'unknown'),
                     'layers': list(stacked_activations.keys()),
                     'n_samples': len(all_gm_deception),
+                    'has_sae': len(all_sae_features) > 0,
                 },
 
                 # Full metadata
                 'metadata': metadata,
             }
+
+            # Add SAE features if available
+            if all_sae_features:
+                # Convert SAE features to tensor format
+                # sae_features is Dict[int, float] -> convert to dense tensor
+                try:
+                    # Get the max feature index to determine tensor size
+                    max_idx = max(max(f.keys()) for f in all_sae_features if f)
+                    sae_dim = max_idx + 1
+
+                    # Create dense SAE feature tensor [N, sae_dim]
+                    sae_tensor = torch.zeros(len(all_sae_features), sae_dim)
+                    for i, features in enumerate(all_sae_features):
+                        if features:
+                            for idx, val in features.items():
+                                sae_tensor[i, idx] = val
+
+                    dataset['sae_features'] = sae_tensor
+                    dataset['sae_top_features'] = all_sae_top_features
+                    dataset['config']['sae_dim'] = sae_dim
+                except Exception as e:
+                    print(f"  Warning: Could not save SAE features: {e}")
 
             torch.save(dataset, filepath)
 
@@ -1739,6 +1769,12 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
             print(f"  Layers: {layers}")
             print(f"  Activation dim: {d_model}")
             print(f"  GM deception rate: {np.mean(all_gm_deception):.1%}")
+
+            # SAE summary
+            if all_sae_features:
+                print(f"  SAE features: {len(all_sae_features)} samples, dim={dataset['config'].get('sae_dim', 'N/A')}")
+            else:
+                print(f"  SAE features: None (not captured or SAE disabled)")
 
             # Print per-scenario breakdown
             unique_scenarios = set(all_scenarios)
