@@ -469,7 +469,7 @@ def run_full_analysis(data_path: str) -> Dict[str, Any]:
 
     # Load data
     print(f"\nLoading data from: {data_path}")
-    data = torch.load(data_path)
+    data = torch.load(data_path, weights_only=False)
 
     activations = data["activations"]
     labels = data["labels"]

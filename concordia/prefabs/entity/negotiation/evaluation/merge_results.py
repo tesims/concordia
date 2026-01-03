@@ -53,7 +53,7 @@ def merge_activation_files(files: List[str], output_path: str) -> dict:
 
     for f in files:
         print(f"  Loading: {f}")
-        data = torch.load(f, map_location="cpu")
+        data = torch.load(f, map_location="cpu", weights_only=False)
 
         if "samples" in data:
             samples = data["samples"]
