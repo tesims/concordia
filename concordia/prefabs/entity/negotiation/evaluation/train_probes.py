@@ -505,7 +505,7 @@ def run_full_analysis(data_path: str) -> Dict[str, Any]:
     # Choose primary layer (mid-layer)
     layers = sorted(activations.keys())
     mid_layer = layers[len(layers) // 2]
-    X_mid = activations[mid_layer].numpy()
+    X_mid = activations[mid_layer].float().numpy()
 
     print(f"\nPrimary analysis layer: {mid_layer}")
     print(f"Activation shape: {X_mid.shape}")
@@ -553,7 +553,7 @@ def run_full_analysis(data_path: str) -> Dict[str, Any]:
     best_r2 = -1
 
     for layer in layers:
-        X = activations[layer].numpy()
+        X = activations[layer].float().numpy()
 
         # Train probe on GM labels
         _, gm_result = train_ridge_probe(X, gm_labels)
@@ -590,7 +590,7 @@ def run_full_analysis(data_path: str) -> Dict[str, Any]:
     print("GM vs AGENT LABEL COMPARISON")
     print(f"{'='*60}")
 
-    X_best = activations[best_layer].numpy()
+    X_best = activations[best_layer].float().numpy()
 
     _, gm_result = train_ridge_probe(X_best, gm_labels)
     _, agent_result = train_ridge_probe(X_best, agent_labels)
