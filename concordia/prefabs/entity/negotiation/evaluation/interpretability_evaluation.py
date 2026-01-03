@@ -413,7 +413,14 @@ class HybridLanguageModel(language_model.LanguageModel):
 
         # Layer configuration
         n_layers = self.tl_model.cfg.n_layers
-        self.layers_to_capture = layers_to_capture or [0, n_layers // 2, n_layers - 1]
+        default_layers = layers_to_capture or [0, n_layers // 2, n_layers - 1]
+
+        # Ensure SAE layer is always captured when SAE is enabled
+        if use_sae and sae_layer not in default_layers:
+            default_layers = sorted(set(default_layers) | {sae_layer})
+            print(f"  Auto-adding SAE layer {sae_layer} to captured layers", flush=True)
+
+        self.layers_to_capture = default_layers
         self.hook_names = [f"blocks.{l}.hook_resid_post" for l in self.layers_to_capture]
 
         # 3. SAE setup (optional)
