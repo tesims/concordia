@@ -424,8 +424,10 @@ class HybridLanguageModel(language_model.LanguageModel):
 
         if use_sae:
             try:
+                import sys
+                print("  Importing SAE tools...", flush=True)
                 from .mech_interp_tools import load_gemma_scope_sae
-                print(f"  Loading Gemma Scope SAE (layer {sae_layer})...")
+                print(f"  Loading Gemma Scope SAE (layer {sae_layer})...", flush=True)
                 # Determine model size from name
                 if "27b" in model_name.lower():
                     model_size = "27b"
@@ -438,9 +440,9 @@ class HybridLanguageModel(language_model.LanguageModel):
                     layer=sae_layer,
                     width="16k",
                 )
-                print(f"  SAE loaded: {self.sae_cfg['d_sae']} features")
+                print(f"  SAE loaded: {self.sae_cfg['d_sae']} features", flush=True)
             except Exception as e:
-                print(f"  Warning: SAE loading failed: {e}")
+                print(f"  Warning: SAE loading failed: {e}", flush=True)
                 self.use_sae = False
 
         # State
@@ -448,9 +450,9 @@ class HybridLanguageModel(language_model.LanguageModel):
         self._current_sae_features = None
         self._call_count = 0
 
-        print(f"  HybridLanguageModel ready!")
-        print(f"  Layers to capture: {self.layers_to_capture}")
-        print(f"  SAE enabled: {self.use_sae}")
+        print(f"  HybridLanguageModel ready!", flush=True)
+        print(f"  Layers to capture: {self.layers_to_capture}", flush=True)
+        print(f"  SAE enabled: {self.use_sae}", flush=True)
 
     def sample_text(
         self,
