@@ -159,6 +159,20 @@ from .sanity_checks import (
     sanity_check_label_variance,
 )
 
+# Causal Validation (activation patching, ablation, steering)
+from .causal_validation import (
+    activation_patching_test,
+    ablation_test,
+    steering_vector_test,
+    probe_faithfulness_test,
+    selectivity_test,
+    run_full_causal_validation,
+    extract_deception_direction,
+    create_steering_vector,
+    CausalValidationResult,
+    SteeringVector,
+)
+
 __all__ = [
     # Metrics
     'MetricsCollector',
@@ -259,4 +273,15 @@ __all__ = [
     'sanity_check_random_labels',
     'sanity_check_train_test_gap',
     'sanity_check_label_variance',
+    # Causal Validation
+    'activation_patching_test',
+    'ablation_test',
+    'steering_vector_test',
+    'probe_faithfulness_test',
+    'selectivity_test',
+    'run_full_causal_validation',
+    'extract_deception_direction',
+    'create_steering_vector',
+    'CausalValidationResult',
+    'SteeringVector',
 ]

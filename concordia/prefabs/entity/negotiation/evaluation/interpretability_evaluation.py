@@ -15,7 +15,7 @@ The key distinction:
 - GM labels: Third-person ground truth ("You ARE being deceptive")
 
 Usage:
-    runner = InterpretabilityRunner(model_name="google/gemma-2-2b-it", device="cuda")
+    runner = InterpretabilityRunner(model_name="google/gemma-2-9b-it", device="cuda")
     results = runner.run_study(scenario='fishery', num_trials=10, use_gm=True)
     runner.save_dataset('negotiation_activations.pt')
 """
@@ -188,7 +188,7 @@ class TransformerLensWrapper(language_model.LanguageModel):
 
     def __init__(
         self,
-        model_name: str = "google/gemma-2-2b-it",
+        model_name: str = "google/gemma-2-9b-it",
         device: str = "cuda",
         layers_to_capture: List[int] = None,
         torch_dtype: torch.dtype = None,
@@ -363,7 +363,7 @@ class HybridLanguageModel(language_model.LanguageModel):
     3. SAE feature extraction adds minimal overhead
 
     Usage:
-        model = HybridLanguageModel(model_name="google/gemma-2-2b-it", use_sae=True)
+        model = HybridLanguageModel(model_name="google/gemma-2-9b-it", use_sae=True)
         response = model.sample_text("Hello")
         activations = model.get_activations()
         sae_features = model.get_sae_features()
@@ -371,13 +371,13 @@ class HybridLanguageModel(language_model.LanguageModel):
 
     def __init__(
         self,
-        model_name: str = "google/gemma-2-2b-it",
+        model_name: str = "google/gemma-2-9b-it",
         device: str = "cuda",
         layers_to_capture: List[int] = None,
         torch_dtype: torch.dtype = None,
         max_tokens: int = 128,
         use_sae: bool = True,
-        sae_layer: int = 12,
+        sae_layer: int = 21,
     ):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformer_lens import HookedTransformer
@@ -589,14 +589,14 @@ class InterpretabilityRunner:
 
     def __init__(
         self,
-        model_name: str = "google/gemma-2-2b-it",
+        model_name: str = "google/gemma-2-9b-it",
         device: str = "cuda",
         layers_to_capture: List[int] = None,
         torch_dtype: torch.dtype = None,
         max_tokens: int = 128,
         use_hybrid: bool = False,
         use_sae: bool = False,
-        sae_layer: int = 12,
+        sae_layer: int = 21,
     ):
         # Choose model implementation based on hybrid flag
         if use_hybrid:
@@ -1845,7 +1845,7 @@ Respond with ONLY three numbers separated by commas, like: 0.7, 0.3, 0.5
 # =============================================================================
 
 def run_quick_study(
-    model_name: str = "google/gemma-2-2b-it",
+    model_name: str = "google/gemma-2-9b-it",
     device: str = "cuda",
     scenario: str = "fishery",
     num_trials: int = 5,

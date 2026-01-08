@@ -107,7 +107,7 @@ def verify_installation() -> Dict[str, bool]:
     return results
 
 
-def verify_gemma_loading(model_name: str = "google/gemma-2-2b-it", device: str = "cpu"):
+def verify_gemma_loading(model_name: str = "google/gemma-2-9b-it", device: str = "cpu"):
     """Verify TransformerLens can load Gemma 2 correctly."""
     print(f"\nVerifying Gemma loading: {model_name}")
 
@@ -150,8 +150,8 @@ def verify_gemma_loading(model_name: str = "google/gemma-2-2b-it", device: str =
 
 
 def verify_sae_loading(
-    sae_release: str = "gemma-scope-2b-pt-res-canonical",
-    sae_id: str = "layer_12/width_16k/canonical",
+    sae_release: str = "gemma-scope-9b-pt-res-canonical",
+    sae_id: str = "layer_21/width_16k/canonical",
 ):
     """Verify SAE Lens can load Gemma Scope SAEs."""
     print(f"\nVerifying SAE loading: {sae_release}")
@@ -199,7 +199,7 @@ class ActivationCache:
 
 
 def load_gemma_with_cache(
-    model_name: str = "google/gemma-2-2b-it",
+    model_name: str = "google/gemma-2-9b-it",
     device: str = "cuda",
 ):
     """Load Gemma model configured for activation caching."""
@@ -292,8 +292,8 @@ class SAEFeatures:
 
 
 def load_gemma_scope_sae(
-    model_size: str = "2b",
-    layer: int = 12,
+    model_size: str = "9b",
+    layer: int = 21,
     width: str = "16k",
     site: str = "res",  # res, mlp, or att
     variant: str = "canonical",
@@ -731,9 +731,9 @@ def visualize_probe_results(
 # =============================================================================
 
 def run_full_analysis(
-    model_name: str = "google/gemma-2-2b-it",
+    model_name: str = "google/gemma-2-9b-it",
     text: str = "I promise to cooperate with you on this deal.",
-    layers_to_analyze: List[int] = [0, 12, 25],
+    layers_to_analyze: List[int] = [0, 21, 41],
     device: str = "cuda",
 ):
     """Run complete analysis pipeline on a text sample.
@@ -764,16 +764,16 @@ def run_full_analysis(
     for layer, act in cache.residual_stream.items():
         print(f"    Layer {layer}: {act.shape}")
 
-    # 3. Load SAE (layer 12 residual stream)
+    # 3. Load SAE (layer 21 residual stream for 9B)
     print(f"\n[3] Loading Gemma Scope SAE")
     try:
-        sae, cfg = load_gemma_scope_sae(model_size="2b", layer=12, width="16k")
+        sae, cfg = load_gemma_scope_sae(model_size="9b", layer=21, width="16k")
         print(f"    ✓ SAE loaded: {sae.cfg.d_sae} features")
 
         # 4. Get SAE features
         print(f"\n[4] Extracting SAE features")
-        layer_12_act = cache.residual_stream[12][0, -1, :]  # Last token
-        sae_features = extract_sae_features(sae, layer_12_act)
+        layer_21_act = cache.residual_stream[21][0, -1, :]  # Last token
+        sae_features = extract_sae_features(sae, layer_21_act)
         print(f"    Sparsity: {sae_features.sparsity:.4f}")
         print(f"    Top features: {sae_features.top_features[:5]}")
 
@@ -807,7 +807,7 @@ if __name__ == "__main__":
     if all_required:
         print("\n✓ All required tools installed!")
         print("\nTo verify Gemma loading (requires download):")
-        print("  verify_gemma_loading('google/gemma-2-2b-it', device='cpu')")
+        print("  verify_gemma_loading('google/gemma-2-9b-it', device='cpu')")
         print("\nTo verify SAE loading (requires download):")
         print("  verify_sae_loading()")
     else:
