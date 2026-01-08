@@ -455,7 +455,11 @@ def main():
 
         # Load activations for causal tests
         data = torch.load(str(activations_path), weights_only=False)
-        activations = {k: v.numpy() if hasattr(v, 'numpy') else v for k, v in data["activations"].items()}
+        # Convert bfloat16 to float32 before numpy (numpy doesn't support bfloat16)
+        activations = {
+            k: v.float().numpy() if hasattr(v, 'numpy') else v
+            for k, v in data["activations"].items()
+        }
         gm_labels = np.array(data["labels"]["gm_labels"])
         best_layer = probe_results["best_probe"]["layer"]
 
