@@ -9,16 +9,34 @@ Complete guide to running the emergent deception detection experiment on RunPod.
 | **Template** | `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04` |
 | **GPU** | RTX 6000 Ada 96GB |
 | **Container Disk** | 20GB |
-| **Volume Disk** | 50GB |
+| **Volume Disk** | 100GB+ |
 | **Volume Path** | `/workspace` |
 
 **Estimated Cost:** ~$6-7 for full experiment (~5-6 hours)
 
 ---
 
-## Step 1: Full Setup
+## Step 1: Set Up Storage (IMPORTANT)
 
-Copy and paste this entire block:
+**Run this first** to avoid disk space errors. Models download to persistent storage instead of the small container disk:
+
+```bash
+# Redirect HuggingFace cache to your volume (100GB) instead of container (20GB)
+export HF_HOME=/workspace/persistent/huggingface_cache
+mkdir -p $HF_HOME
+
+# Make it permanent
+echo 'export HF_HOME=/workspace/persistent/huggingface_cache' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify
+echo "HF cache: $HF_HOME"
+df -h /workspace
+```
+
+---
+
+## Step 2: Install Dependencies
 
 ```bash
 cd /workspace && \
@@ -28,21 +46,32 @@ git checkout hybrid-sae-experiment && \
 pip install -e . && \
 pip install -r concordia/prefabs/entity/negotiation/evaluation/requirements.in && \
 pip install transformers==4.44.0 accelerate==0.33.0 && \
-pip install huggingface_hub && \
-huggingface-cli login
+pip install huggingface_hub
 ```
-
-**When prompted:** Paste your HuggingFace token from https://huggingface.co/settings/tokens
 
 ---
 
-## Step 2: Validate Setup
+## Step 3: HuggingFace Login
+
+```bash
+huggingface-cli login
+```
+
+**When prompted:** Paste your token from https://huggingface.co/settings/tokens
+
+> **Note:** You must also accept the Gemma license at https://huggingface.co/google/gemma-2-9b-it
+
+---
+
+## Step 4: Validate Setup
 
 ```bash
 python << 'EOF'
 import torch
+import os
 print(f"PyTorch: {torch.__version__}")
 print(f"CUDA: {torch.cuda.is_available()}")
+print(f"HF Cache: {os.environ.get('HF_HOME', 'NOT SET')}")
 if torch.cuda.is_available():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
     print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
@@ -62,6 +91,7 @@ EOF
 ```
 PyTorch: 2.4.0
 CUDA: True
+HF Cache: /workspace/persistent/huggingface_cache
 GPU: NVIDIA RTX 6000 Ada Generation
 VRAM: 96.0 GB
 HuggingFace: <your-username>
@@ -71,7 +101,7 @@ Scenarios: ['ultimatum_bluff', 'capability_bluff', 'hidden_value', 'info_withhol
 
 ---
 
-## Step 3: Quick Test (1 trial)
+## Step 5: Quick Test (1 trial)
 
 Verify everything works before the full run:
 
@@ -95,7 +125,7 @@ python -u run_deception_experiment.py \
 
 ---
 
-## Step 4: Full Experiment (Conference Quality)
+## Step 6: Full Experiment (Conference Quality)
 
 ```bash
 cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && \
@@ -124,7 +154,7 @@ python -u run_deception_experiment.py \
 
 ---
 
-## Step 5: Monitor Progress
+## Step 7: Monitor Progress
 
 In a separate terminal:
 
@@ -138,7 +168,7 @@ watch -n 1 nvidia-smi
 
 ---
 
-## Step 6: Download Results
+## Step 8: Download Results
 
 ```bash
 # Check output files
