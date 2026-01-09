@@ -640,12 +640,10 @@ class InterpretabilityRunner:
         use_hybrid: bool = False,
         use_sae: bool = False,
         sae_layer: int = 21,
-        evaluator_api: str = None,  # 'together', 'google', or None
+        evaluator_api: str = None,  # 'local', 'together', 'google', or None
     ):
-        # Setup evaluator model for ground truth extraction (separate from subject model)
-        self.evaluator_model = None
-        if evaluator_api:
-            self.evaluator_model = self._setup_evaluator(evaluator_api)
+        # Store device for later use
+        self._device = device
 
         # Choose model implementation based on hybrid flag
         if use_hybrid:
@@ -681,6 +679,11 @@ class InterpretabilityRunner:
             self.fast_model = FastModelWrapper(self.model)
         else:
             self.fast_model = self.model  # TransformerLensWrapper doesn't have the flag
+
+        # Setup evaluator model for ground truth extraction (AFTER main model is created)
+        self.evaluator_model = None
+        if evaluator_api:
+            self.evaluator_model = self._setup_evaluator(evaluator_api)
 
     def _normalize_incentive_condition(self, condition: Any) -> 'IncentiveCondition':
         """Accept Enum or string (any case) and return IncentiveCondition."""
@@ -744,7 +747,7 @@ class InterpretabilityRunner:
                             skip_special_tokens=True
                         ).strip()
 
-                evaluator = LocalEvaluator(device=self.model.device if hasattr(self.model, 'device') else 'cuda')
+                evaluator = LocalEvaluator(device=self._device)
                 print(f"  Local evaluator ready!", flush=True)
                 return evaluator
             except Exception as e:
@@ -1596,7 +1599,7 @@ Example: yes, yes'''
 
                 # Checkpoint after each trial if directory specified
                 if checkpoint_dir:
-                    checkpoint_path = f"{checkpoint_dir}/checkpoint_{scenario}_{condition}_trial{trial+1:03d}.pt"
+                    checkpoint_path = f"{checkpoint_dir}/checkpoint_{scenario}_{cond_label}_trial{trial+1:03d}.pt"
                     self.save_dataset(checkpoint_path)
 
                 if (trial + 1) % 10 == 0:
