@@ -687,5 +687,5 @@ Paste your token from https://huggingface.co/settings/tokens
 
 ### Step 4: Run Full Experiment (50 trials, ~22 hours)
 ```bash
-cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && mkdir -p /workspace/persistent/full_experiment /workspace/persistent/checkpoints && python -u run_deception_experiment.py --mode emergent --scenarios 6 --trials 50 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --checkpoint-dir /workspace/persistent/checkpoints --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && mkdir -p /workspace/persistent/full_experiment /workspace/persistent/checkpoints && python -u run_deception_experiment.py --mode emergent --scenarios 6 --trials 1 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --checkpoint-dir /workspace/persistent/checkpoints --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
 ```

@@ -254,6 +254,204 @@ def sanity_check_label_variance(y: np.ndarray) -> Dict[str, float]:
 
 
 # =============================================================================
+# PER-LAYER PROBE COMPARISON
+# =============================================================================
+
+def train_probes_per_layer(
+    activations_by_layer: Dict[int, np.ndarray],
+    labels: np.ndarray,
+    alpha: float = 10.0,
+    use_pca: bool = True,
+    n_components: int = 50,
+) -> Dict[int, Dict[str, float]]:
+    """
+    Train separate probes on each layer to find optimal layer for deception detection.
+
+    This is a critical validation step. Expected pattern from literature:
+    - Early layers: Low accuracy (basic features, not semantic)
+    - Middle layers: Peak accuracy (high-level concepts encoded)
+    - Late layers: Lower accuracy (output formatting)
+
+    If accuracy is flat across layers, something is wrong (probe using surface features).
+
+    Args:
+        activations_by_layer: Dict mapping layer_num -> activations [N, d_model]
+        labels: Ground truth labels [N]
+        alpha: Ridge regularization
+        use_pca: Whether to apply PCA
+        n_components: PCA components
+
+    Returns:
+        Dict mapping layer_num -> {auc, r2, accuracy, train_r2, test_r2}
+    """
+    results = {}
+
+    for layer_num, X in sorted(activations_by_layer.items()):
+        # Convert to numpy if tensor
+        if hasattr(X, 'numpy'):
+            X = X.cpu().numpy() if hasattr(X, 'cpu') else X.numpy()
+        if hasattr(labels, 'numpy'):
+            y = labels.cpu().numpy() if hasattr(labels, 'cpu') else labels.numpy()
+        else:
+            y = np.array(labels)
+
+        # Skip if not enough samples
+        if len(y) < 10:
+            results[layer_num] = {
+                'auc': 0.5, 'r2': 0.0, 'accuracy': 0.5,
+                'train_r2': 0.0, 'test_r2': 0.0, 'note': 'insufficient samples'
+            }
+            continue
+
+        # Check label variance
+        if np.std(y) < 0.01:
+            results[layer_num] = {
+                'auc': 0.5, 'r2': 0.0, 'accuracy': 0.5,
+                'train_r2': 0.0, 'test_r2': 0.0, 'note': 'no label variance'
+            }
+            continue
+
+        try:
+            _, probe_result = train_ridge_probe(
+                X, y, alpha=alpha, use_pca=use_pca, n_components=n_components
+            )
+            results[layer_num] = {
+                'auc': probe_result.auc,
+                'r2': probe_result.r2_score,
+                'accuracy': probe_result.accuracy,
+                'train_r2': probe_result.train_r2,
+                'test_r2': probe_result.test_r2,
+            }
+        except Exception as e:
+            results[layer_num] = {
+                'auc': 0.5, 'r2': 0.0, 'accuracy': 0.5,
+                'train_r2': 0.0, 'test_r2': 0.0, 'error': str(e)
+            }
+
+    return results
+
+
+def find_best_layer(layer_results: Dict[int, Dict[str, float]]) -> Dict[str, Any]:
+    """
+    Find the best layer and analyze the layer accuracy curve.
+
+    Returns:
+        Dict with best_layer, peak_auc, curve_analysis, etc.
+    """
+    if not layer_results:
+        return {'best_layer': None, 'error': 'No layer results'}
+
+    # Find best by AUC
+    best_layer = max(layer_results.keys(), key=lambda l: layer_results[l].get('auc', 0))
+    best_auc = layer_results[best_layer]['auc']
+
+    # Analyze curve shape
+    layers = sorted(layer_results.keys())
+    aucs = [layer_results[l]['auc'] for l in layers]
+
+    # Check for expected inverted-U pattern
+    n_layers = len(layers)
+    if n_layers >= 3:
+        first_third = aucs[:n_layers//3]
+        middle_third = aucs[n_layers//3:2*n_layers//3]
+        last_third = aucs[2*n_layers//3:]
+
+        first_avg = np.mean(first_third) if first_third else 0
+        middle_avg = np.mean(middle_third) if middle_third else 0
+        last_avg = np.mean(last_third) if last_third else 0
+
+        # Expected: middle > first and middle > last
+        has_expected_shape = middle_avg > first_avg and middle_avg > last_avg
+    else:
+        has_expected_shape = None
+        first_avg = middle_avg = last_avg = None
+
+    # Check for flat curve (red flag)
+    auc_std = np.std(aucs)
+    is_flat = auc_std < 0.05  # If std < 5%, curve is suspiciously flat
+
+    # Relative position of best layer (0=first, 1=last)
+    if len(layers) > 1:
+        relative_position = (best_layer - min(layers)) / (max(layers) - min(layers))
+    else:
+        relative_position = 0.5
+
+    return {
+        'best_layer': int(best_layer),
+        'peak_auc': float(best_auc),
+        'peak_r2': float(layer_results[best_layer].get('r2', 0)),
+        'auc_std_across_layers': float(auc_std),
+        'is_flat_curve': bool(is_flat),
+        'has_expected_inverted_u': has_expected_shape,
+        'relative_position': float(relative_position),
+        'layer_aucs': {int(l): float(layer_results[l]['auc']) for l in layers},
+        'analysis': {
+            'first_third_avg_auc': float(first_avg) if first_avg is not None else None,
+            'middle_third_avg_auc': float(middle_avg) if middle_avg is not None else None,
+            'last_third_avg_auc': float(last_avg) if last_avg is not None else None,
+        },
+        'warnings': [
+            'FLAT CURVE: Probe may be using surface features' if is_flat else None,
+            'NO INVERTED-U: Unexpected layer pattern' if has_expected_shape is False else None,
+            'EARLY PEAK: Best layer in first third' if relative_position < 0.33 else None,
+            'LATE PEAK: Best layer in last third' if relative_position > 0.67 else None,
+        ],
+    }
+
+
+def plot_layer_accuracy_curve(
+    layer_results: Dict[int, Dict[str, float]],
+    output_path: str = 'layer_accuracy_curve.png',
+    title: str = 'Probe Accuracy by Layer',
+) -> None:
+    """
+    Generate the standard layer accuracy curve plot.
+
+    This is a key visualization for mechanistic interpretability papers.
+    """
+    layers = sorted(layer_results.keys())
+    aucs = [layer_results[l]['auc'] for l in layers]
+    r2s = [layer_results[l]['r2'] for l in layers]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+    # AUC plot
+    ax1.plot(layers, aucs, 'b-o', linewidth=2, markersize=8)
+    ax1.axhline(y=0.5, color='gray', linestyle='--', label='Random (AUC=0.5)')
+    ax1.set_xlabel('Layer', fontsize=12)
+    ax1.set_ylabel('AUC', fontsize=12)
+    ax1.set_title('AUC by Layer', fontsize=14)
+    ax1.set_ylim(0.4, 1.0)
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Mark best layer
+    best_layer = max(layers, key=lambda l: layer_results[l]['auc'])
+    best_auc = layer_results[best_layer]['auc']
+    ax1.scatter([best_layer], [best_auc], color='red', s=200, zorder=5, marker='*')
+    ax1.annotate(f'Best: L{best_layer}\nAUC={best_auc:.3f}',
+                 xy=(best_layer, best_auc), xytext=(10, -20),
+                 textcoords='offset points', fontsize=10,
+                 arrowprops=dict(arrowstyle='->', color='red'))
+
+    # R² plot
+    ax2.plot(layers, r2s, 'g-o', linewidth=2, markersize=8)
+    ax2.axhline(y=0.0, color='gray', linestyle='--', label='Random (R²=0)')
+    ax2.set_xlabel('Layer', fontsize=12)
+    ax2.set_ylabel('R²', fontsize=12)
+    ax2.set_title('R² by Layer', fontsize=14)
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    plt.suptitle(title, fontsize=16, y=1.02)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    print(f"Saved layer accuracy curve to {output_path}")
+
+
+# =============================================================================
 # GENERALIZATION ANALYSIS WITH AUC
 # =============================================================================
 
