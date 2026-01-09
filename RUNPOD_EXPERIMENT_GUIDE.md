@@ -632,7 +632,7 @@ mkdir -p /workspace/persistent/full_experiment && \
 mkdir -p /workspace/persistent/checkpoints && \
 python -u run_deception_experiment.py \
     --mode emergent \
-    --scenario-name ultimatum_bluff \
+    --scenario-name alliance_betrayal \
     --scenarios 6 \
     --trials 1 \
     --max-rounds 3 \
@@ -685,7 +685,21 @@ huggingface-cli login
 ```
 Paste your token from https://huggingface.co/settings/tokens
 
-### Step 4: Run Full Experiment (50 trials, ~22 hours)
+### Step 4: Quick Test (1 scenario, 1 trial)
 ```bash
-cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && mkdir -p /workspace/persistent/full_experiment /workspace/persistent/checkpoints && python -u run_deception_experiment.py --mode emergent --scenarios 6 --trials 1 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --checkpoint-dir /workspace/persistent/checkpoints --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && mkdir -p /workspace/persistent/full_experiment /workspace/persistent/checkpoints && python -u run_deception_experiment.py --mode emergent --scenario-name alliance_betrayal --trials 1 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --checkpoint-dir /workspace/persistent/checkpoints --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+```
+
+### Step 5: Full Experiment (6 scenarios, 50 trials each)
+```bash
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && python -u run_deception_experiment.py --mode emergent --scenarios 6 --trials 50 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --checkpoint-dir /workspace/persistent/checkpoints --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+```
+
+### Update Existing Pod (already has 9B model)
+```bash
+cd /workspace/concordia && git pull
+```
+
+```bash
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && python -u run_deception_experiment.py --mode emergent --scenarios 6 --trials 50 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --checkpoint-dir /workspace/persistent/checkpoints --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
 ```
