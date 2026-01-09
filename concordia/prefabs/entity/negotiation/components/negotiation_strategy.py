@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple
 
 from concordia.typing import entity_component
 
+from concordia.prefabs.entity.negotiation.config import StrategyConfig
+
 
 @dataclasses.dataclass
 class StrategyState:
@@ -61,8 +63,8 @@ class CooperativeStrategy(NegotiationStrategy):
 
     def should_accept_offer(self, offer: float, state: StrategyState) -> bool:
         """Accept if offer is reasonable and shows good faith."""
-        # Accept if within 80% of our current position
-        return offer >= 0.8 * state.current_position
+        # Accept if within threshold of our current position
+        return offer >= StrategyConfig.COOPERATIVE_ACCEPTANCE_THRESHOLD * state.current_position
 
     def get_tactical_guidance(self, state: StrategyState) -> str:
         """Provide cooperative tactical guidance."""
@@ -94,7 +96,7 @@ class CompetitiveStrategy(NegotiationStrategy):
 
     def calculate_concession(self, state: StrategyState) -> float:
         """Make minimal concessions, decreasing over time."""
-        base_concession = 0.05 * (state.current_position - state.opponent_position)
+        base_concession = StrategyConfig.BASE_CONCESSION_RATE * (state.current_position - state.opponent_position)
 
         # Reduce concessions as negotiation progresses
         time_factor = max(0.3, 1.0 - (state.rounds_elapsed / 20))
@@ -103,8 +105,8 @@ class CompetitiveStrategy(NegotiationStrategy):
 
     def should_accept_offer(self, offer: float, state: StrategyState) -> bool:
         """Only accept if offer meets high standards."""
-        # Accept only if within 95% of current position
-        return offer >= 0.95 * state.current_position
+        # Accept only if within competitive threshold of current position
+        return offer >= StrategyConfig.COMPETITIVE_ACCEPTANCE_THRESHOLD * state.current_position
 
     def get_tactical_guidance(self, state: StrategyState) -> str:
         """Provide competitive tactical guidance."""
@@ -153,7 +155,7 @@ class IntegrativeStrategy(NegotiationStrategy):
             return abs(offer - zopa_middle) < 0.2 * (state.zone_of_agreement[1] - state.zone_of_agreement[0])
         else:
             # Standard acceptance criteria
-            return offer >= 0.85 * state.current_position
+            return offer >= StrategyConfig.INTEGRATIVE_ACCEPTANCE_THRESHOLD * state.current_position
 
     def get_tactical_guidance(self, state: StrategyState) -> str:
         """Provide integrative tactical guidance."""
@@ -221,6 +223,10 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
         self._state.current_position = self._strategy.get_opening_position(
             reservation_value, target_value
         )
+
+        # Track opponent offers and initial targets
+        self._last_opponent_offer: Optional[float] = None
+        self._initial_target: float = target_value
 
     def update_state(self, opponent_offer: Optional[float] = None) -> None:
         """Update strategic state based on negotiation progress.
@@ -320,9 +326,6 @@ class BasicNegotiationStrategy(entity_component.ContextComponent):
     
     def _adjust_strategy_for_offer(self, offer_value: float) -> None:
         """Adjust strategy based on opponent's offer."""
-        if not hasattr(self, '_initial_target'):
-            self._initial_target = self._target_value
-        
         # If offer is better than our reservation, become more cooperative
         if ((self._style == 'competitive' and offer_value > self._reservation_value) or
             (self._style == 'cooperative' and offer_value >= self._reservation_value * 0.9)):

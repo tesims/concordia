@@ -8,6 +8,10 @@ from collections import deque
 
 from concordia.typing import entity_component
 from concordia.typing import entity as entity_lib
+from concordia.prefabs.entity.negotiation.config import (
+    DeceptionDetectionConfig,
+    TheoryOfMindConfig,
+)
 
 
 @dataclasses.dataclass
@@ -84,7 +88,7 @@ class TheoryOfMind(entity_component.ContextComponent):
         self._belief_hierarchy: Dict[int, List[RecursiveBelief]] = {}
 
         # Emotional intelligence state
-        self._emotion_history: deque = deque(maxlen=20)
+        self._emotion_history: deque = deque(maxlen=TheoryOfMindConfig.EMOTION_HISTORY_SIZE)
         self._empathy_strategies: Dict[str, str] = {
             'frustration': 'validation_and_problem_solving',
             'anxiety': 'reassurance_and_clarity',
@@ -280,38 +284,78 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
         return traits
 
     def _detect_deception(self, statement: str, baseline_patterns: Dict[str, float]) -> Dict[str, float]:
-        """Detect potential deception indicators in statements."""
+        """Detect potential deception indicators in statements.
+
+        Uses configurable multipliers from DeceptionDetectionConfig.
+        Based on research:
+          - DePaulo et al. (2003): avg effect size d=0.25 for significant cues
+          - Hauch et al. (2015): liars NOT more uncertain, but more negative emotion
+          - Newman et al. (2003): fewer self-references, more negative words
+        """
         deception_indicators = {
             'linguistic_complexity': 0.0,
             'evasiveness': 0.0,
             'inconsistency': 0.0,
             'over_certainty': 0.0,
-            'defensive_language': 0.0
+            'defensive_language': 0.0,
+            'negative_emotion': 0.0,
         }
 
         statement_lower = statement.lower()
+        words = statement_lower.split()
+        total_words = len(words)
 
         # Linguistic complexity (overly complex explanations)
-        complex_words = len([word for word in statement.split() if len(word) > 8])
-        total_words = len(statement.split())
         if total_words > 0:
+            complex_words = len([
+                word for word in words
+                if len(word) > DeceptionDetectionConfig.COMPLEX_WORD_MIN_LENGTH
+            ])
             complexity_ratio = complex_words / total_words
-            deception_indicators['linguistic_complexity'] = min(1.0, complexity_ratio * 3)
+            deception_indicators['linguistic_complexity'] = min(
+                1.0,
+                complexity_ratio * DeceptionDetectionConfig.LINGUISTIC_COMPLEXITY_MULTIPLIER
+            )
 
-        # Evasiveness patterns
-        evasive_phrases = ['it depends', 'not exactly', 'sort of', 'kind of', 'i think maybe']
-        evasiveness_count = sum(1 for phrase in evasive_phrases if phrase in statement_lower)
-        deception_indicators['evasiveness'] = min(1.0, evasiveness_count * 0.3)
+        # Evasiveness patterns (NOTE: Hauch 2015 shows this is WEAK cue)
+        evasiveness_count = sum(
+            1 for phrase in DeceptionDetectionConfig.EVASIVE_PHRASES
+            if phrase in statement_lower
+        )
+        deception_indicators['evasiveness'] = min(
+            1.0,
+            evasiveness_count * DeceptionDetectionConfig.EVASIVENESS_MULTIPLIER
+        )
 
-        # Over-certainty (excessive certainty can indicate deception)
-        certainty_words = ['absolutely', 'definitely', 'certainly', 'without doubt', 'guarantee']
-        certainty_count = sum(1 for word in certainty_words if word in statement_lower)
-        deception_indicators['over_certainty'] = min(1.0, certainty_count * 0.4)
+        # Over-certainty / truth emphasis ("protest too much" - reliable cue)
+        certainty_count = sum(
+            1 for phrase in DeceptionDetectionConfig.CERTAINTY_WORDS
+            if phrase in statement_lower
+        )
+        deception_indicators['over_certainty'] = min(
+            1.0,
+            certainty_count * DeceptionDetectionConfig.OVER_CERTAINTY_MULTIPLIER
+        )
 
-        # Defensive language
-        defensive_phrases = ['why would i', 'of course not', 'obviously', 'how dare you']
-        defensive_count = sum(1 for phrase in defensive_phrases if phrase in statement_lower)
-        deception_indicators['defensive_language'] = min(1.0, defensive_count * 0.5)
+        # Defensive language (reliable cue)
+        defensive_count = sum(
+            1 for phrase in DeceptionDetectionConfig.DEFENSIVE_PHRASES
+            if phrase in statement_lower
+        )
+        deception_indicators['defensive_language'] = min(
+            1.0,
+            defensive_count * DeceptionDetectionConfig.DEFENSIVE_LANGUAGE_MULTIPLIER
+        )
+
+        # Negative emotion words (Hauch 2015: liars express MORE negative emotion)
+        negative_count = sum(
+            1 for word in DeceptionDetectionConfig.NEGATIVE_EMOTION_WORDS
+            if word in words  # Match whole words only
+        )
+        deception_indicators['negative_emotion'] = min(
+            1.0,
+            negative_count * DeceptionDetectionConfig.NEGATIVE_EMOTION_MULTIPLIER
+        )
 
         return deception_indicators
 
@@ -335,16 +379,18 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
                     level=1,
                     believer="self",
                     content={"counterpart_believes": "we_are_motivated_to_close"},
-                    confidence=0.6,
+                    confidence=TheoryOfMindConfig.BASE_BELIEF_CONFIDENCE - TheoryOfMindConfig.BELIEF_CONFIDENCE_DECAY,
                     evidence=["behavioral_observations"]
                 )]
             else:
                 # Higher levels: What I think they think I believe, etc.
+                # Confidence decays with each level but has a floor
+                decayed_confidence = TheoryOfMindConfig.BASE_BELIEF_CONFIDENCE - (level * TheoryOfMindConfig.BELIEF_CONFIDENCE_DECAY)
                 beliefs = [RecursiveBelief(
                     level=level,
                     believer="self",
                     content={f"level_{level}_belief": "recursive_reasoning"},
-                    confidence=max(0.2, 0.8 - (level * 0.2)),
+                    confidence=max(TheoryOfMindConfig.MIN_BELIEF_CONFIDENCE, decayed_confidence),
                     evidence=["meta_reasoning"]
                 )]
 
@@ -356,7 +402,7 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
         """Generate empathic response based on detected emotions."""
         dominant_emotion, intensity = emotional_state.dominant_emotion()
 
-        if intensity < 0.3:
+        if intensity < TheoryOfMindConfig.LOW_EMOTION_THRESHOLD:
             return "I appreciate your perspective on this."
 
         empathy_templates = {
@@ -389,10 +435,10 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
 
         templates = empathy_templates.get(dominant_emotion, ["I appreciate your perspective."])
 
-        # Select response based on intensity
-        if intensity > 0.7:
+        # Select response based on intensity (using configurable thresholds)
+        if intensity > TheoryOfMindConfig.HIGH_EMOTION_THRESHOLD:
             return templates[0]  # Strong acknowledgment
-        elif intensity > 0.5:
+        elif intensity > TheoryOfMindConfig.MODERATE_EMOTION_THRESHOLD:
             return templates[1] if len(templates) > 1 else templates[0]
         else:
             return templates[-1]  # Gentler acknowledgment
@@ -509,9 +555,9 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
         self._emotion_history.append(emotional_state)
 
         # Update deception detection baseline
-        if len(self._emotion_history) > 5:
+        if len(self._emotion_history) > TheoryOfMindConfig.MIN_OBSERVATIONS_FOR_BASELINE:
             # Simple baseline: average emotional patterns
-            recent_emotions = list(self._emotion_history)[-5:]
+            recent_emotions = list(self._emotion_history)[-TheoryOfMindConfig.MIN_OBSERVATIONS_FOR_BASELINE:]
             for emotion in emotional_state.emotions:
                 self._baseline_patterns[emotion] = np.mean([es.emotions.get(emotion, 0) for es in recent_emotions])
 
@@ -545,14 +591,14 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
 
     def _get_emotional_trend(self) -> str:
         """Analyze recent emotional trend."""
-        if len(self._emotion_history) < 3:
+        if len(self._emotion_history) < TheoryOfMindConfig.MIN_HISTORY_FOR_TREND:
             return "insufficient_data"
 
-        recent_valences = [es.valence for es in list(self._emotion_history)[-3:]]
+        recent_valences = [es.valence for es in list(self._emotion_history)[-TheoryOfMindConfig.MIN_HISTORY_FOR_TREND:]]
 
-        if all(v > 0.2 for v in recent_valences):
+        if all(v > TheoryOfMindConfig.POSITIVE_TREND_THRESHOLD for v in recent_valences):
             return "increasingly_positive"
-        elif all(v < -0.2 for v in recent_valences):
+        elif all(v < TheoryOfMindConfig.NEGATIVE_TREND_THRESHOLD for v in recent_valences):
             return "increasingly_negative"
         elif recent_valences[-1] > recent_valences[0]:
             return "improving"
@@ -580,7 +626,7 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
         
         # Generate empathic response if emotions are intense
         empathic_response = ""
-        if emotional_state.emotional_intensity() > 0.4:
+        if emotional_state.emotional_intensity() > TheoryOfMindConfig.EMPATHY_TRIGGER_THRESHOLD:
             empathic_response = self._generate_empathic_response(emotional_state)
         
         # Build recursive reasoning about the situation
@@ -619,7 +665,7 @@ Action:"""
             action = action[7:].strip()
         
         # Add empathic framing if strong emotions detected
-        if emotional_state.emotional_intensity() > 0.6 and empathic_response:
+        if emotional_state.emotional_intensity() > TheoryOfMindConfig.EMPATHIC_FRAMING_THRESHOLD and empathic_response:
             action = f"{empathic_response} {action}"
         
         return action
