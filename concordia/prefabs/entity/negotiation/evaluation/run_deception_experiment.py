@@ -507,10 +507,27 @@ def main():
                 )
                 causal_validated = causal_results.get("overall_passed", False)
 
-                # Save causal results
+                # Save causal results (handle numpy types)
+                def convert_numpy(obj):
+                    """Convert numpy types to Python native types for JSON."""
+                    import numpy as np
+                    if isinstance(obj, np.bool_):
+                        return bool(obj)
+                    elif isinstance(obj, np.integer):
+                        return int(obj)
+                    elif isinstance(obj, np.floating):
+                        return float(obj)
+                    elif isinstance(obj, np.ndarray):
+                        return obj.tolist()
+                    elif isinstance(obj, dict):
+                        return {k: convert_numpy(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [convert_numpy(v) for v in obj]
+                    return obj
+
                 causal_results_path = output_dir / "causal_validation_results.json"
                 with open(causal_results_path, "w") as f:
-                    json.dump(causal_results, f, indent=2)
+                    json.dump(convert_numpy(causal_results), f, indent=2)
                 print(f"\nCausal validation results saved to: {causal_results_path}")
             else:
                 print("Skipping causal validation (no TransformerLens model available)")

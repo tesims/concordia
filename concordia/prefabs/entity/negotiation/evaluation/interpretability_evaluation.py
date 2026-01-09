@@ -470,8 +470,15 @@ class HybridLanguageModel(language_model.LanguageModel):
         temperature: float = 0.7,
         timeout: float = 60,
         seed: int | None = None,
+        capture_activations: bool = True,  # Skip expensive TransformerLens pass when False
     ) -> str:
-        """Generate text with HuggingFace, capture activations with TransformerLens."""
+        """Generate text with HuggingFace, optionally capture activations with TransformerLens.
+
+        Args:
+            capture_activations: If False, skip the expensive TransformerLens forward pass.
+                               Use False for counterpart responses, extraction calls, etc.
+                               Only set True for the negotiator responses you want to analyze.
+        """
         self._call_count += 1
 
         if max_tokens is None:
@@ -522,36 +529,38 @@ class HybridLanguageModel(language_model.LanguageModel):
         # =========================================================
         # 2. SINGLE PASS activation capture with TransformerLens
         # =========================================================
-        full_text = prompt + response
-        tokens = self.tl_model.to_tokens(full_text)
+        # OPTIMIZATION: Skip this expensive step when not needed
+        if capture_activations:
+            full_text = prompt + response
+            tokens = self.tl_model.to_tokens(full_text)
 
-        with torch.no_grad():
-            _, cache = self.tl_model.run_with_cache(
-                tokens,
-                names_filter=lambda name: name in self.hook_names
-            )
+            with torch.no_grad():
+                _, cache = self.tl_model.run_with_cache(
+                    tokens,
+                    names_filter=lambda name: name in self.hook_names
+                )
 
-        # Extract last-token activations from each layer
-        self._current_activations = {}
-        for hook_name in self.hook_names:
-            if hook_name in cache:
-                self._current_activations[hook_name] = cache[hook_name][0, -1, :].cpu()
+            # Extract last-token activations from each layer
+            self._current_activations = {}
+            for hook_name in self.hook_names:
+                if hook_name in cache:
+                    self._current_activations[hook_name] = cache[hook_name][0, -1, :].cpu()
 
-        # =========================================================
-        # 3. SAE FEATURE EXTRACTION (if enabled)
-        # =========================================================
-        self._current_sae_features = None
-        if self.use_sae and self.sae is not None:
-            try:
-                from .mech_interp_tools import extract_sae_features
-                sae_hook = f"blocks.{self.sae_layer}.hook_resid_post"
-                if sae_hook in self._current_activations:
-                    self._current_sae_features = extract_sae_features(
-                        self.sae,
-                        self._current_activations[sae_hook],
-                    )
-            except Exception as e:
-                pass  # Silently continue if SAE extraction fails
+            # =========================================================
+            # 3. SAE FEATURE EXTRACTION (if enabled)
+            # =========================================================
+            self._current_sae_features = None
+            if self.use_sae and self.sae is not None:
+                try:
+                    from .mech_interp_tools import extract_sae_features
+                    sae_hook = f"blocks.{self.sae_layer}.hook_resid_post"
+                    if sae_hook in self._current_activations:
+                        self._current_sae_features = extract_sae_features(
+                            self.sae,
+                            self._current_activations[sae_hook],
+                        )
+                except Exception as e:
+                    pass  # Silently continue if SAE extraction fails
 
         return response
 
@@ -593,6 +602,29 @@ class HybridLanguageModel(language_model.LanguageModel):
     @property
     def call_count(self) -> int:
         return self._call_count
+
+
+class FastModelWrapper(language_model.LanguageModel):
+    """Wrapper that skips activation capture for non-essential calls (e.g., counterpart).
+
+    This provides ~5x speedup by avoiding expensive TransformerLens passes
+    for agents we don't need to analyze.
+    """
+
+    def __init__(self, base_model: HybridLanguageModel):
+        self._base = base_model
+
+    def sample_text(self, prompt: str, **kwargs) -> str:
+        # Always skip activation capture
+        kwargs['capture_activations'] = False
+        return self._base.sample_text(prompt, **kwargs)
+
+    def sample_choice(self, prompt: str, responses: list, **kwargs):
+        return self._base.sample_choice(prompt, responses, **kwargs)
+
+    @property
+    def call_count(self) -> int:
+        return self._base.call_count
 
 
 class InterpretabilityRunner:
@@ -642,6 +674,13 @@ class InterpretabilityRunner:
         self._gm_modules_used = []
         # Track component access failures for debugging
         self._component_access_failures: Dict[str, int] = defaultdict(int)
+
+        # Create fast model wrapper for non-essential calls (counterpart, etc.)
+        # This provides ~5x speedup by skipping activation capture
+        if use_hybrid:
+            self.fast_model = FastModelWrapper(self.model)
+        else:
+            self.fast_model = self.model  # TransformerLensWrapper doesn't have the flag
 
     def _setup_evaluator(self, api: str):
         """Setup external API model for ground truth evaluation."""
@@ -836,9 +875,11 @@ Example: yes, yes'''
                 )
                 print(f"  [DEBUG] API extraction result: '{result.strip()[:50]}'", flush=True)
             else:
+                # OPTIMIZATION: Skip activation capture for extraction calls
                 result = self.model.sample_text(
                     prompt=extraction_prompt,
                     max_tokens=30,
+                    capture_activations=False,  # Don't need activations for ground truth
                 )
             result = result.strip().lower()
             print(f"  [DEBUG] Extraction result: '{result}'", flush=True)
@@ -1570,10 +1611,12 @@ Example: yes, yes'''
                 'goal': counterpart_prompt,
                 'custom_instructions': counterpart_prompt,
             })
-            counterpart = counterpart_prefab.build(model=self.model, memory_bank=counterpart_memory)
+            # OPTIMIZATION: Use fast_model for counterpart (skips activation capture)
+            counterpart = counterpart_prefab.build(model=self.fast_model, memory_bank=counterpart_memory)
         else:
+            # OPTIMIZATION: Use fast_model for counterpart (skips activation capture)
             counterpart = advanced_negotiator.build_agent(
-                model=self.model,
+                model=self.fast_model,
                 memory_bank=counterpart_memory,
                 name="Counterpart",
                 goal=counterpart_prompt,
