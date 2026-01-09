@@ -652,3 +652,40 @@ python -u run_deception_experiment.py \
   - info_withholding
   - promise_break
   - alliance_betrayal
+
+---
+
+## Quick Copy-Paste Commands (A100 80GB)
+
+### Step 1: Storage Setup
+```bash
+mkdir -p /workspace/persistent/huggingface_cache /workspace/persistent/torch_cache /workspace/persistent/sae_cache /workspace/persistent/pip_cache
+```
+
+```bash
+echo 'export HF_HOME=/workspace/persistent/huggingface_cache' >> ~/.bashrc && echo 'export TRANSFORMERS_CACHE=/workspace/persistent/huggingface_cache' >> ~/.bashrc && echo 'export TORCH_HOME=/workspace/persistent/torch_cache' >> ~/.bashrc && echo 'export SAE_LENS_CACHE=/workspace/persistent/sae_cache' >> ~/.bashrc && echo 'export PIP_CACHE_DIR=/workspace/persistent/pip_cache' >> ~/.bashrc && source ~/.bashrc
+```
+
+```bash
+ln -sf /workspace/persistent/huggingface_cache ~/.cache/huggingface && echo "HF_HOME=$HF_HOME"
+```
+
+### Step 2: Install
+```bash
+cd /workspace && git clone https://github.com/tesims/concordia.git && cd concordia && git checkout hybrid-sae-experiment
+```
+
+```bash
+pip install -e . && pip install -r concordia/prefabs/entity/negotiation/evaluation/requirements.in && pip install transformers==4.44.0 accelerate==0.33.0 huggingface_hub
+```
+
+### Step 3: HuggingFace Login
+```bash
+huggingface-cli login
+```
+Paste your token from https://huggingface.co/settings/tokens
+
+### Step 4: Run Full Experiment (50 trials, ~22 hours)
+```bash
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && mkdir -p /workspace/persistent/full_experiment && python -u run_deception_experiment.py --mode emergent --scenarios 6 --trials 50 --max-rounds 3 --hybrid --sae --causal --causal-samples 30 --device cuda --dtype bfloat16 --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+```
