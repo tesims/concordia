@@ -7,30 +7,63 @@ Complete guide to running the emergent deception detection experiment on RunPod.
 | Setting | Value |
 |---------|-------|
 | **Template** | `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04` |
-| **GPU** | RTX 6000 Ada 96GB |
+| **GPU** | **A100 80GB PCIe** (recommended) |
 | **Container Disk** | 20GB |
 | **Volume Disk** | 100GB+ |
 | **Volume Path** | `/workspace` |
 
-**Estimated Cost:** ~$6-7 for full experiment (~5-6 hours)
+### GPU Options
+
+| GPU | VRAM | Price/hr | Works with Gemma 9B Hybrid |
+|-----|------|----------|---------------------------|
+| **A100 80GB PCIe** | 80GB | $1.19/hr | ✅ Recommended |
+| A100 80GB SXM | 80GB | $1.39/hr | ✅ Slightly faster |
+| A40 | 48GB | $0.35/hr | ❌ OOM with hybrid mode |
+| RTX 6000 Ada | 48GB | $0.74/hr | ❌ OOM with hybrid mode |
+
+**Estimated Cost:** ~$26 for full experiment (~22 hours) on A100 80GB
 
 ---
 
 ## Step 1: Set Up Storage (IMPORTANT)
 
-**Run this first** to avoid disk space errors. Models download to persistent storage instead of the small container disk:
+**Run this first** to avoid disk space errors. ALL model caches must go to persistent storage instead of the small container disk (20GB):
 
 ```bash
-# Redirect HuggingFace cache to your volume (100GB) instead of container (20GB)
-export HF_HOME=/workspace/persistent/huggingface_cache
-mkdir -p $HF_HOME
+# Create persistent cache directories
+mkdir -p /workspace/persistent/huggingface_cache
+mkdir -p /workspace/persistent/torch_cache
+mkdir -p /workspace/persistent/sae_cache
+mkdir -p /workspace/persistent/pip_cache
 
-# Make it permanent
-echo 'export HF_HOME=/workspace/persistent/huggingface_cache' >> ~/.bashrc
+# Set ALL cache environment variables
+export HF_HOME=/workspace/persistent/huggingface_cache
+export TRANSFORMERS_CACHE=/workspace/persistent/huggingface_cache
+export HF_DATASETS_CACHE=/workspace/persistent/huggingface_cache/datasets
+export TORCH_HOME=/workspace/persistent/torch_cache
+export SAE_LENS_CACHE=/workspace/persistent/sae_cache
+export PIP_CACHE_DIR=/workspace/persistent/pip_cache
+
+# Make it permanent (add to bashrc)
+cat >> ~/.bashrc << 'EOF'
+export HF_HOME=/workspace/persistent/huggingface_cache
+export TRANSFORMERS_CACHE=/workspace/persistent/huggingface_cache
+export HF_DATASETS_CACHE=/workspace/persistent/huggingface_cache/datasets
+export TORCH_HOME=/workspace/persistent/torch_cache
+export SAE_LENS_CACHE=/workspace/persistent/sae_cache
+export PIP_CACHE_DIR=/workspace/persistent/pip_cache
+EOF
 source ~/.bashrc
 
-# Verify
-echo "HF cache: $HF_HOME"
+# Symlink default cache locations to persistent storage (backup)
+rm -rf ~/.cache/huggingface 2>/dev/null
+ln -sf /workspace/persistent/huggingface_cache ~/.cache/huggingface
+
+# Verify setup
+echo "=== Cache Locations ==="
+echo "HF_HOME: $HF_HOME"
+echo "TORCH_HOME: $TORCH_HOME"
+echo "SAE_LENS_CACHE: $SAE_LENS_CACHE"
 df -h /workspace
 ```
 
@@ -72,9 +105,15 @@ import os
 print(f"PyTorch: {torch.__version__}")
 print(f"CUDA: {torch.cuda.is_available()}")
 print(f"HF Cache: {os.environ.get('HF_HOME', 'NOT SET')}")
+print(f"Torch Cache: {os.environ.get('TORCH_HOME', 'NOT SET')}")
+print(f"SAE Cache: {os.environ.get('SAE_LENS_CACHE', 'NOT SET')}")
 if torch.cuda.is_available():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
-    print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+    vram = torch.cuda.get_device_properties(0).total_memory / 1e9
+    print(f"VRAM: {vram:.1f} GB")
+    if vram < 70:
+        print("⚠️  WARNING: VRAM < 70GB - may OOM with Gemma 9B hybrid mode!")
+        print("   Recommended: A100 80GB ($1.19/hr)")
 
 from huggingface_hub import HfApi
 api = HfApi()
@@ -87,13 +126,15 @@ print("✅ All imports OK - Ready to run!")
 EOF
 ```
 
-**Expected output:**
+**Expected output (A100 80GB):**
 ```
 PyTorch: 2.4.0
 CUDA: True
 HF Cache: /workspace/persistent/huggingface_cache
-GPU: NVIDIA RTX 6000 Ada Generation
-VRAM: 96.0 GB
+Torch Cache: /workspace/persistent/torch_cache
+SAE Cache: /workspace/persistent/sae_cache
+GPU: NVIDIA A100 80GB PCIe
+VRAM: 80.0 GB
 HuggingFace: <your-username>
 Scenarios: ['ultimatum_bluff', 'capability_bluff', 'hidden_value', 'info_withholding', 'promise_break', 'alliance_betrayal']
 ✅ All imports OK - Ready to run!
@@ -130,6 +171,7 @@ python -u run_deception_experiment.py \
 ```bash
 cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && \
 mkdir -p /workspace/persistent/full_experiment && \
+mkdir -p /workspace/persistent/checkpoints && \
 python -u run_deception_experiment.py \
     --mode emergent \
     --trials 50 \
@@ -140,6 +182,7 @@ python -u run_deception_experiment.py \
     --causal-samples 30 \
     --device cuda \
     --dtype bfloat16 \
+    --checkpoint-dir /workspace/persistent/checkpoints \
     --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
 ```
 
@@ -148,9 +191,10 @@ python -u run_deception_experiment.py \
 - **Theory of Mind** enabled (rich agent labels)
 - **SAE feature extraction** (Gemma Scope)
 - **Causal validation** (activation patching, ablation, steering)
+- **Checkpointing** for crash recovery
 - All output saved + logged
 
-**Estimated time:** ~4-6 hours
+**Estimated time:** ~20-22 hours
 
 ---
 
@@ -507,3 +551,104 @@ fuser -v /dev/nvidia*
 - [ ] Step 3: Quick test successful
 - [ ] Step 4: Full experiment started
 - [ ] Results downloaded
+
+
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && \
+mkdir -p /workspace/persistent/full_experiment && \
+mkdir -p /workspace/persistent/checkpoints && \
+python -u run_deception_experiment.py \
+    --mode emergent \
+    --trials 50 \
+    --max-rounds 3 \
+    --hybrid \
+    --sae \
+    --causal \
+    --causal-samples 30 \
+    --device cuda \
+    --dtype bfloat16 \
+    --checkpoint-dir /workspace/persistent/checkpoints \
+    --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+
+Step 1: Set Up Storage
+
+export HF_HOME=/workspace/persistent/huggingface_cache
+mkdir -p $HF_HOME
+echo 'export HF_HOME=/workspace/persistent/huggingface_cache' >> ~/.bashrc
+source ~/.bashrc
+
+Step 2: Install (with latest code)
+
+cd /workspace && \
+git clone https://github.com/tesims/concordia.git && \
+cd concordia && \
+git checkout hybrid-sae-experiment && \
+pip install -e . && \
+pip install -r concordia/prefabs/entity/negotiation/evaluation/requirements.in && \
+pip install transformers==4.44.0 accelerate==0.33.0 && \
+pip install huggingface_hub
+
+Step 3: HuggingFace Login
+
+huggingface-cli login
+
+Step 4: Quick Test
+
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && \
+mkdir -p /workspace/persistent/test_output && \
+python -u run_deception_experiment.py \
+    --mode emergent \
+    --trials 1 \
+    --max-rounds 3 \
+    --hybrid \
+    --sae \
+    --causal \
+    --causal-samples 30 \
+    --device cuda \
+    --dtype bfloat16 \
+    --output /workspace/persistent/test_output
+
+Step 5: Full Run (Conference Quality)
+
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && \
+mkdir -p /workspace/persistent/full_experiment && \
+mkdir -p /workspace/persistent/checkpoints && \
+python -u run_deception_experiment.py \
+    --mode emergent \
+    --scenarios 6 \
+    --trials 1 \
+    --max-rounds 3 \
+    --hybrid \
+    --sae \
+    --causal \
+    --causal-samples 30 \
+    --device cuda \
+    --dtype bfloat16 \
+    --checkpoint-dir /workspace/persistent/checkpoints \
+    --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+
+
+cd /workspace/concordia/concordia/prefabs/entity/negotiation/evaluation && \
+mkdir -p /workspace/persistent/full_experiment && \
+mkdir -p /workspace/persistent/checkpoints && \
+python -u run_deception_experiment.py \
+    --mode emergent \
+    --scenario-name ultimatum_bluff \
+    --scenarios 6 \
+    --trials 1 \
+    --max-rounds 3 \
+    --hybrid \
+    --sae \
+    --causal \
+    --causal-samples 30 \
+    --device cuda \
+    --dtype bfloat16 \
+    --checkpoint-dir /workspace/persistent/checkpoints \
+    --output /workspace/persistent/full_experiment 2>&1 | tee /workspace/persistent/full_experiment/experiment.log
+
+  Available scenario names:
+  - ultimatum_bluff
+  - capability_bluff
+  - hidden_value
+  - info_withholding
+  - promise_break
+  - alliance_betrayal
