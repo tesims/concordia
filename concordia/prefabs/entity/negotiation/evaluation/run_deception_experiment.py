@@ -284,6 +284,12 @@ def main():
         help="Layer for SAE feature extraction (default: 21, middle layer for Gemma 9B)"
     )
 
+    # Evaluator API for ground truth extraction
+    parser.add_argument(
+        "--evaluator-api", type=str, choices=['together', 'google'], default=None,
+        help="Use external API for ground truth extraction: 'together' (TOGETHER_API_KEY) or 'google' (GOOGLE_API_KEY)"
+    )
+
     # Training mode
     parser.add_argument(
         "--train-only", action="store_true",
@@ -385,6 +391,7 @@ def main():
     print(f"SAE enabled: {args.sae}", flush=True)
     if args.sae:
         print(f"SAE layer: {args.sae_layer}", flush=True)
+    print(f"Evaluator API: {args.evaluator_api or 'local (fallback to regex)'}", flush=True)
     print(f"Output directory: {output_dir}", flush=True)
 
     # Determine agent modules based on --fast flag
@@ -403,6 +410,7 @@ def main():
         use_hybrid=args.hybrid,
         use_sae=args.sae,
         sae_layer=args.sae_layer,
+        evaluator_api=args.evaluator_api,
     )
 
     init_time = time.time() - start_time

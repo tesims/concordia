@@ -608,7 +608,13 @@ class InterpretabilityRunner:
         use_hybrid: bool = False,
         use_sae: bool = False,
         sae_layer: int = 21,
+        evaluator_api: str = None,  # 'together', 'google', or None
     ):
+        # Setup evaluator model for ground truth extraction (separate from subject model)
+        self.evaluator_model = None
+        if evaluator_api:
+            self.evaluator_model = self._setup_evaluator(evaluator_api)
+
         # Choose model implementation based on hybrid flag
         if use_hybrid:
             self.model = HybridLanguageModel(
@@ -636,6 +642,44 @@ class InterpretabilityRunner:
         self._gm_modules_used = []
         # Track component access failures for debugging
         self._component_access_failures: Dict[str, int] = defaultdict(int)
+
+    def _setup_evaluator(self, api: str):
+        """Setup external API model for ground truth evaluation."""
+        if api == 'together':
+            try:
+                from concordia.language_model import together_ai
+                import os
+                api_key = os.environ.get('TOGETHER_API_KEY')
+                if not api_key:
+                    print("  Warning: TOGETHER_API_KEY not set, falling back to local extraction")
+                    return None
+                print(f"  Setting up Together AI evaluator (gemma-3-4b-it)...")
+                return together_ai.TogetherAI(
+                    model_name='google/gemma-3-4b-it',  # Fast, cheap, good at extraction
+                    api_key=api_key,
+                )
+            except Exception as e:
+                print(f"  Warning: Together AI setup failed: {e}")
+                return None
+        elif api == 'google':
+            try:
+                from concordia.language_model import google_aistudio_model
+                import os
+                api_key = os.environ.get('GOOGLE_API_KEY')
+                if not api_key:
+                    print("  Warning: GOOGLE_API_KEY not set, falling back to local extraction")
+                    return None
+                print(f"  Setting up Google AI Studio evaluator (gemini-1.5-flash)...")
+                return google_aistudio_model.GoogleAIStudioModel(
+                    model_name='gemini-1.5-flash',  # Free tier, fast
+                    api_key=api_key,
+                )
+            except Exception as e:
+                print(f"  Warning: Google AI Studio setup failed: {e}")
+                return None
+        else:
+            print(f"  Warning: Unknown evaluator API '{api}', falling back to local")
+            return None
 
     def _create_memory_bank(self):
         """Create memory bank with simple embedder."""
@@ -784,12 +828,23 @@ Example: yes, yes'''
             return {'extraction_failed': True}
 
         try:
-            result = self.model.sample_text(
-                prompt=extraction_prompt,
-                max_tokens=30,
-            )
+            # Use evaluator API if available (better for extraction), else fall back to local model
+            if self.evaluator_model is not None:
+                result = self.evaluator_model.sample_text(
+                    prompt=extraction_prompt,
+                    max_tokens=30,
+                )
+                print(f"  [DEBUG] API extraction result: '{result.strip()[:50]}'", flush=True)
+            else:
+                result = self.model.sample_text(
+                    prompt=extraction_prompt,
+                    max_tokens=30,
+                )
             result = result.strip().lower()
             print(f"  [DEBUG] Extraction result: '{result}'", flush=True)
+            # Treat empty result as extraction failure
+            if not result:
+                return {'extraction_failed': True, 'error': 'empty result'}
             return {'raw_extraction': result, 'scenario': scenario}
         except Exception as e:
             print(f"  [DEBUG] Extraction failed: {e}", flush=True)
