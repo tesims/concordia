@@ -480,7 +480,18 @@ class HybridLanguageModel(language_model.LanguageModel):
         # =========================================================
         # 1. FAST GENERATION with HuggingFace (KV-cached)
         # =========================================================
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        # Apply chat template for instruction-tuned models (Gemma-it, etc.)
+        if hasattr(self.tokenizer, 'apply_chat_template'):
+            messages = [{"role": "user", "content": prompt}]
+            formatted_prompt = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        else:
+            formatted_prompt = prompt
+
+        inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.device)
 
         gen_kwargs = {
             "max_new_tokens": min(max_tokens, 256),
