@@ -682,9 +682,76 @@ class InterpretabilityRunner:
         else:
             self.fast_model = self.model  # TransformerLensWrapper doesn't have the flag
 
+    def _normalize_incentive_condition(self, condition: Any) -> 'IncentiveCondition':
+        """Accept Enum or string (any case) and return IncentiveCondition."""
+        if isinstance(condition, IncentiveCondition):
+            return condition
+        if isinstance(condition, str):
+            # Try both enum name (UPPER) and enum value (lowercase)
+            try:
+                return IncentiveCondition[condition.upper()]
+            except KeyError:
+                try:
+                    return IncentiveCondition(condition.lower())
+                except ValueError:
+                    pass
+        raise ValueError(f"Unknown incentive condition: {condition}")
+
     def _setup_evaluator(self, api: str):
-        """Setup external API model for ground truth evaluation."""
-        if api == 'together':
+        """Setup evaluator model for ground truth extraction.
+
+        Options:
+            'local': Load lightweight Gemma-2B locally (~2GB VRAM, no API needed)
+            'together': Use Together AI API (requires TOGETHER_API_KEY)
+            'google': Use Google AI Studio API (requires GOOGLE_API_KEY)
+        """
+        if api == 'local':
+            # Load lightweight local model for extraction (no API needed)
+            try:
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+                print(f"  Loading local evaluator (google/gemma-2-2b-it)...", flush=True)
+
+                class LocalEvaluator:
+                    """Lightweight local model for extraction tasks."""
+                    def __init__(self, device="cuda"):
+                        self.device = device
+                        self.model = AutoModelForCausalLM.from_pretrained(
+                            "google/gemma-2-2b-it",
+                            torch_dtype=torch.bfloat16,
+                            device_map=device,
+                        )
+                        self.tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it")
+                        if self.tokenizer.pad_token is None:
+                            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+                    def sample_text(self, prompt: str, max_tokens: int = 30, **kwargs) -> str:
+                        # Apply chat template
+                        messages = [{"role": "user", "content": prompt}]
+                        formatted = self.tokenizer.apply_chat_template(
+                            messages, tokenize=False, add_generation_prompt=True
+                        )
+                        inputs = self.tokenizer(formatted, return_tensors="pt").to(self.device)
+                        with torch.no_grad():
+                            outputs = self.model.generate(
+                                inputs.input_ids,
+                                max_new_tokens=max_tokens,
+                                temperature=0.3,
+                                do_sample=True,
+                                pad_token_id=self.tokenizer.pad_token_id,
+                            )
+                        return self.tokenizer.decode(
+                            outputs[0][inputs.input_ids.shape[1]:],
+                            skip_special_tokens=True
+                        ).strip()
+
+                evaluator = LocalEvaluator(device=self.model.device if hasattr(self.model, 'device') else 'cuda')
+                print(f"  Local evaluator ready!", flush=True)
+                return evaluator
+            except Exception as e:
+                print(f"  Warning: Local evaluator setup failed: {e}", flush=True)
+                return None
+
+        elif api == 'together':
             try:
                 from concordia.language_model import together_ai
                 import os
@@ -1480,13 +1547,17 @@ Example: yes, yes'''
 
         # Default to empty modules - theory_of_mind has compatibility issues
         agent_modules = agent_modules if agent_modules is not None else ['theory_of_mind']
-        conditions = conditions or ['HIGH_INCENTIVE', 'LOW_INCENTIVE']
+        condition_enums = [
+            self._normalize_incentive_condition(c)
+            for c in (conditions or [IncentiveCondition.HIGH_INCENTIVE, IncentiveCondition.LOW_INCENTIVE])
+        ]
+        condition_labels = [c.value for c in condition_enums]
 
         print(f"\n{'='*70}", flush=True)
         print(f"EMERGENT DECEPTION STUDY: {scenario.upper()}", flush=True)
         print(f"{'='*70}", flush=True)
         print(f"Trials per condition: {num_trials}", flush=True)
-        print(f"Conditions: {conditions}", flush=True)
+        print(f"Conditions: {condition_labels}", flush=True)
         print(f"Agent modules: {agent_modules}", flush=True)
         print(f"Max rounds: {max_rounds}", flush=True)
         print(f"Ultrafast mode: {ultrafast}", flush=True)
@@ -1499,9 +1570,9 @@ Example: yes, yes'''
             'total_deception': 0,
         }
 
-        for condition in conditions:
-            print(f"\n[{condition}]", flush=True)
-            condition_enum = IncentiveCondition.HIGH_INCENTIVE if condition == 'HIGH_INCENTIVE' else IncentiveCondition.LOW_INCENTIVE
+        for condition_enum in condition_enums:
+            cond_label = condition_enum.value
+            print(f"\n[{cond_label}]", flush=True)
             condition_results = []
             deception_count = 0
 
@@ -1532,7 +1603,7 @@ Example: yes, yes'''
                     rate = deception_count / (trial + 1)
                     print(f"  >> Progress: {trial+1}/{num_trials}, deception_rate={rate:.1%}", flush=True)
 
-            results['conditions'][condition] = {
+            results['conditions'][cond_label] = {
                 'num_trials': num_trials,
                 'deception_count': deception_count,
                 'deception_rate': deception_count / num_trials,
@@ -1748,21 +1819,25 @@ Example: yes, yes'''
         scenarios = scenarios or get_emergent_scenarios()
         agent_modules = agent_modules if agent_modules is not None else ['theory_of_mind']
 
-        # Convert conditions to string list for run_emergent_study
+        # Normalize conditions to enums (supports Enum or string input)
         if conditions is None:
-            condition_strs = ['HIGH_INCENTIVE', 'LOW_INCENTIVE']
+            condition_enums = [
+                IncentiveCondition.HIGH_INCENTIVE,
+                IncentiveCondition.LOW_INCENTIVE,
+            ]
         else:
-            condition_strs = [c.value if hasattr(c, 'value') else c for c in conditions]
+            condition_enums = [self._normalize_incentive_condition(c) for c in conditions]
+        condition_labels = [c.value for c in condition_enums]
 
         print("\n" + "=" * 70, flush=True)
         print("COMPREHENSIVE EMERGENT DECEPTION STUDY", flush=True)
         print("=" * 70, flush=True)
         print(f"Scenarios: {scenarios}", flush=True)
-        print(f"Conditions: {condition_strs}", flush=True)
+        print(f"Conditions: {condition_labels}", flush=True)
         print(f"Trials per scenario (per condition): {trials_per_scenario}", flush=True)
         print(f"Max rounds per trial: {max_rounds}", flush=True)
         print(f"Ultrafast mode: {ultrafast}", flush=True)
-        print(f"Total trials: {len(scenarios) * trials_per_scenario * len(condition_strs)}", flush=True)
+        print(f"Total trials: {len(scenarios) * trials_per_scenario * len(condition_enums)}", flush=True)
 
         all_results = {}
 
@@ -1772,7 +1847,7 @@ Example: yes, yes'''
                 num_trials=trials_per_scenario,
                 agent_modules=agent_modules,
                 max_rounds=max_rounds,
-                conditions=condition_strs,
+                conditions=condition_enums,
                 ultrafast=ultrafast,
                 checkpoint_dir=checkpoint_dir,
             )
@@ -1783,8 +1858,8 @@ Example: yes, yes'''
         print("OVERALL EMERGENT DECEPTION RATES")
         print("=" * 70)
         for scenario, results in all_results.items():
-            high = results['conditions'].get('HIGH_INCENTIVE', {}).get('deception_rate', 0)
-            low = results['conditions'].get('LOW_INCENTIVE', {}).get('deception_rate', 0)
+            high = results['conditions'].get(IncentiveCondition.HIGH_INCENTIVE.value, {}).get('deception_rate', 0)
+            low = results['conditions'].get(IncentiveCondition.LOW_INCENTIVE.value, {}).get('deception_rate', 0)
             print(f"  {scenario}: HIGH={high:.1%}, LOW={low:.1%}")
 
         return all_results
